@@ -1,0 +1,32 @@
+# Large data / cached artifacts — never commit these
+cache/
+data/
+runs/
+logs/
+wandb/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/
+
+# Ad-hoc / temp
+*.log
+tea_debug.log
+/tmp_*
+*.tmp
+*.bak
+
+# Secrets
+.env
+.env.*

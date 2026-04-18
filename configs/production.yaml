@@ -1,0 +1,58 @@
+data:
+  csv_path: ./data/r1000_ohlcv_database.csv
+  date_format: "%Y-%m-%d"
+  min_history_days: 252
+  exclude_lifecycle_boundaries: false
+
+image:
+  window: 20
+  height: 64
+  width: 60
+  ohlc_height_ratio: 0.797
+  include_ma: true
+  include_volume: true
+  cache_dir: ./cache/production_I20
+
+label:
+  horizon: 20
+  balance_train: true
+
+model:
+  blocks: 3
+  channels: [64, 128, 256]
+  conv_kernel: [5, 3]
+  conv_stride: [3, 1]
+  conv_padding: [12, 1]
+  conv_dilation: [2, 1]
+  pool_kernel: [2, 1]
+  leaky_slope: 0.01
+  fc_dropout: 0.5
+
+train:
+  ensemble_size: 5
+  batch_size: 128
+  lr: 1.0e-5
+  optimizer: adam
+  max_epochs: 100
+  early_stop_patience: 2
+  seeds: [0, 1, 2, 3, 4]
+  device: auto
+  num_workers: 8
+  use_wandb: true
+  wandb_project: pattern-cnn
+
+split:
+  mode: expanding
+  start_year: 1996
+  train_years: 8
+  val_fraction: 0.30
+  test_years: 1
+  retrain_every_years: 1
+
+backtest:
+  n_deciles: 10
+  weighting: [equal, value]
+  holding_period_days: 20
+  newey_west_lags: 4
+
+output_dir: ./runs
