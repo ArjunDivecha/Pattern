@@ -37,6 +37,7 @@ from pattern.backtest.deciles import build_portfolios, long_short_series
 from pattern.backtest.metrics import (
     summarize_series,
     per_decile_stats,
+    compute_turnover,
     BUSINESS_DAYS_PER_YEAR,
 )
 
@@ -71,6 +72,19 @@ def run_backtest(
     log.info(f"  {len(pred):,} rows | unique days: {pred['end_date'].nunique():,} | "
              f"unique tickers: {pred['ticker'].nunique():,}")
 
+    # --- Weighting fallback warning ---------------------------------------
+    # The config advertises ["equal", "value"]; if MarketCap is absent from the
+    # predictions DataFrame we can only do equal-weighting. Fail loud here so
+    # the user knows the value-weighted results are NOT being produced.
+    if "value" in [w.lower() for w in (cfg.weighting or ["equal"])] \
+       and "MarketCap" not in pred.columns and "mktcap" not in pred.columns:
+        log.warning(
+            "Value-weighted backtest requested (cfg.weighting includes 'value') "
+            "but no MarketCap/mktcap column in predictions — falling back to "
+            "equal-weight only. Add MarketCap to the source CSV + carry it "
+            "through predictions to enable VW."
+        )
+
     # --- Build portfolios --------------------------------------------------
     portfolios = build_portfolios(
         pred,
@@ -90,6 +104,18 @@ def run_backtest(
     short_stats = summarize_series(ls["short_ret"], holding_period_days, nw_lags)
 
     per_dec = per_decile_stats(portfolios, holding_period_days, cfg.n_deciles, nw_lags)
+
+    # Turnover (decile-membership churn between consecutive formation days)
+    turnover = compute_turnover(pred, score_col=score_col, n_deciles=cfg.n_deciles)
+    ls_stats   = {**ls_stats,
+                  "turnover_per_day":   turnover["ls_turnover_per_day"],
+                  "turnover_per_month": turnover["ls_turnover_per_month"]}
+    long_stats = {**long_stats,
+                  "turnover_per_day":   turnover["long_turnover_per_day"],
+                  "turnover_per_month": turnover["long_turnover_per_month"]}
+    short_stats = {**short_stats,
+                   "turnover_per_day":   turnover["short_turnover_per_day"],
+                   "turnover_per_month": turnover["short_turnover_per_month"]}
 
     # Write decile stats to xlsx (project convention)
     with pd.ExcelWriter(run_dir / "backtest_decile_stats.xlsx") as xw:
@@ -112,7 +138,9 @@ def run_backtest(
     log.info(
         f"Backtest complete   LS Sharpe={ls_stats['sharpe_ann']:.2f}   "
         f"mean_ann={ls_stats['mean_ann']*100:.2f}%   "
-        f"t(NW)={ls_stats['nw_tstat']:.2f}"
+        f"t(NW)={ls_stats['nw_tstat']:.2f}   "
+        f"DD(non-overlap)={ls_stats['max_drawdown']*100:.1f}%   "
+        f"turnover/mo={ls_stats['turnover_per_month']*100:.1f}%"
     )
     return {
         "ls": ls_stats,
@@ -134,8 +162,8 @@ def _plot_cum_return(ls: pd.DataFrame, out: Path, n_deciles: int) -> None:
     ax.plot(ls["end_date"], ls["cum_ls"],    label=f"D{n_deciles} - D1",   color="black", linewidth=1.8)
     ax.axhline(0, color="grey", lw=0.5)
     ax.set_xlabel("Formation date")
-    ax.set_ylabel("Cumulative 20-day log return (summed across formation days)")
-    ax.set_title("Decile & long-short cumulative log returns")
+    ax.set_ylabel("Cumulative h-day log return (summed across formation days — illustrative only)")
+    ax.set_title("Decile & long-short cumulative log returns (overlapping cohorts)")
     ax.legend()
     fig.autofmt_xdate()
     fig.tight_layout()
@@ -181,6 +209,8 @@ def _write_report_md(
     n_d = cfg.n_deciles
 
     def _fmt_stats(label: str, s: dict) -> list[str]:
+        to_pm = s.get("turnover_per_month", float("nan"))
+        to_str = f"{to_pm*100:.1f}%" if to_pm == to_pm else "n/a"
         return [
             f"| {label} | "
             f"{s['n_obs']:,} | "
@@ -190,7 +220,8 @@ def _write_report_md(
             f"{s['vol_ann']*100:.2f}% | "
             f"{s['sharpe_ann']:.2f} | "
             f"{s['nw_tstat']:.2f} | "
-            f"{s['max_drawdown']*100:.2f}% |"
+            f"{s['max_drawdown']*100:.2f}% | "
+            f"{to_str} |"
         ]
 
     head = (
@@ -210,8 +241,8 @@ def _write_report_md(
 
     summary_tbl = [
         "## Long-short summary\n",
-        "| Portfolio | N | Per-period mean | Per-period std | Ann. mean | Ann. vol | Sharpe | t(NW) | Max DD |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| Portfolio | N | Per-period mean | Per-period std | Ann. mean | Ann. vol | Sharpe | t(NW) | Max DD (non-overlap) | Turnover/mo |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     summary_tbl += _fmt_stats(f"D{n_d} (long)",  long_stats)
     summary_tbl += _fmt_stats("D1 (short)",      short_stats)
@@ -250,10 +281,20 @@ def _write_report_md(
         f"apply a Newey-West HAC correction with lag = {nw_lags} to the t-statistic.\n"
         "- **Annualization**: mean × (252 / h), vol × sqrt(252 / h). No risk-free rate "
         "is subtracted — Sharpe matches paper's convention.\n"
-        "- **No transaction costs**. Sharpe above is gross. Turnover is implicit: the "
-        "entire portfolio rebalances daily.\n"
+        f"- **Max DD is computed on the non-overlapping sub-sample** (every {holding_period_days}th "
+        "formation day), because the daily cumulative sum of overlapping h-day log returns "
+        "is not a valid strategy wealth path — it over-counts returns by a factor of ≈h. "
+        "Sub-sampling gives the wealth path of a hold-one-portfolio-at-a-time strategy.\n"
+        "- **Turnover** is reported per month (≈21 trading days) as the "
+        "fraction-replaced metric `|S_t Δ S_{t-1}| / (|S_t| + |S_{t-1}|)` summed "
+        "across consecutive formation days. Full replacement between two "
+        "formation days = 100%; a naive upper bound for a daily-rebalanced book "
+        "is `21 × per-day turnover`.\n"
+        "- **No transaction costs**. Sharpe above is gross. A daily-rebalanced overlapping "
+        "strategy rotates 1/h of capital each day; typical round-trip cost ≈ turnover × spread.\n"
         "- **Equal-weight only**. Value-weighted variants require a `MarketCap` column "
-        "in the source CSV — enable once confirmed.\n"
+        "in the source CSV. A warning is logged at backtest time if `cfg.weighting` "
+        "requests `value` but the column is absent.\n"
     )
 
     (run_dir / "report.md").write_text(

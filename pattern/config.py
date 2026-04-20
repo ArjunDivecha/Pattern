@@ -53,9 +53,21 @@ class ModelConfig(BaseModel):
     blocks: int = 3
     channels: List[int] = [64, 128, 256]
     conv_kernel: List[int] = [5, 3]
-    conv_stride: List[int] = [3, 1]
-    conv_padding: List[int] = [12, 1]
-    conv_dilation: List[int] = [2, 1]
+
+    # First-block convolution params. Per paper §II.B: the asymmetric vertical
+    # stride and dilation exist to down-sample the sparse first layer, and are
+    # applied ONLY on the first block. Deeper blocks keep kernel (5,3) but use
+    # stride=1, dilation=1, same-padding.
+    conv_stride:   List[int] = [3, 1]    # first block only
+    conv_padding:  List[int] = [12, 1]   # first block only
+    conv_dilation: List[int] = [2, 1]    # first block only
+
+    # Deeper-block convolution params (blocks 2+). Same-padding so spatial dims
+    # only change via the 2×1 max-pool between blocks.
+    conv_stride_inner:   List[int] = [1, 1]
+    conv_padding_inner:  List[int] = [2, 1]
+    conv_dilation_inner: List[int] = [1, 1]
+
     pool_kernel: List[int] = [2, 1]
     leaky_slope: float = 0.01
     fc_dropout: float = 0.5
@@ -82,6 +94,10 @@ class SplitConfig(BaseModel):
     val_fraction: float = 0.30
     test_years: int = 2
     retrain_every_years: int = 1
+    # Rolling mode only: train window grows from `train_years` up to
+    # `max_train_years` (inclusive), then keeps trailing `max_train_years`.
+    # None → legacy fixed-width rolling at `train_years`.
+    max_train_years: Optional[int] = None
 
 
 class BacktestConfig(BaseModel):

@@ -39,14 +39,26 @@ class ChartCNN(nn.Module):
         in_ch    = 1
         channels = model_cfg.channels[: model_cfg.blocks]
         blocks   = []
-        for out_ch in channels:
+        for block_idx, out_ch in enumerate(channels):
+            # Paper §II.B: asymmetric vertical stride + dilation exist only to
+            # compress the sparse first layer. Subsequent blocks use stride=1
+            # and dilation=1 with same-padding.
+            if block_idx == 0:
+                stride   = tuple(model_cfg.conv_stride)
+                padding  = tuple(model_cfg.conv_padding)
+                dilation = tuple(model_cfg.conv_dilation)
+            else:
+                stride   = tuple(model_cfg.conv_stride_inner)
+                padding  = tuple(model_cfg.conv_padding_inner)
+                dilation = tuple(model_cfg.conv_dilation_inner)
+
             blocks.append(ConvBlock(
                 in_channels   = in_ch,
                 out_channels  = out_ch,
                 conv_kernel   = tuple(model_cfg.conv_kernel),
-                conv_stride   = tuple(model_cfg.conv_stride),
-                conv_padding  = tuple(model_cfg.conv_padding),
-                conv_dilation = tuple(model_cfg.conv_dilation),
+                conv_stride   = stride,
+                conv_padding  = padding,
+                conv_dilation = dilation,
                 pool_kernel   = tuple(model_cfg.pool_kernel),
                 leaky_slope   = model_cfg.leaky_slope,
             ))
@@ -92,3 +104,13 @@ class ChartCNN(nn.Module):
     def predict_proba(self, x: torch.Tensor) -> torch.Tensor:
         """Return (B, 2) softmax probabilities [P(down), P(up)]."""
         return torch.softmax(self.forward(x), dim=1)
+
+    def forward_with_features(self, x: torch.Tensor):
+        """Return (logits, embedding). Embedding = global-avg-pool over the last
+        conv block's spatial dims, giving a (B, C_last) compact stock representation
+        (256-d for I20) suitable for similarity/regime analysis."""
+        feat = self.conv_blocks(x)                          # (B, C, H', W')
+        emb  = feat.mean(dim=(2, 3))                        # (B, C)
+        flat = feat.flatten(start_dim=1)
+        logits = self.fc(self.dropout(flat))
+        return logits, emb

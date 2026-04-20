@@ -19,6 +19,11 @@ env/
 .DS_Store
 .vscode/
 .idea/
+.claude/
+.cursor/
+~$*.xlsx
+~$*.xls
+~$*.docx
 
 # Ad-hoc / temp
 *.log

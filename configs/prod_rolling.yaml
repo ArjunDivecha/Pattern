@@ -1,0 +1,66 @@
+data:
+  csv_path: /data/Pattern/data/r1000_ohlcv_database.csv
+  date_format: "%Y-%m-%d"
+  min_history_days: 252
+  exclude_lifecycle_boundaries: false
+
+image:
+  window: 20
+  height: 64
+  width: 60
+  ohlc_height_ratio: 0.797
+  include_ma: true
+  include_volume: true
+  cache_dir: /data/Pattern/cache/prod_I20       # shared with expanding pathway
+
+label:
+  horizon: 20
+  balance_train: true
+
+model:
+  blocks: 3
+  channels: [64, 128, 256]
+  conv_kernel: [5, 3]
+  conv_stride: [3, 1]
+  conv_padding: [12, 1]
+  conv_dilation: [2, 1]
+  pool_kernel: [2, 1]
+  leaky_slope: 0.01
+  fc_dropout: 0.5
+
+train:
+  ensemble_size: 5
+  batch_size: 128
+  lr: 1.0e-5
+  optimizer: adam
+  max_epochs: 100
+  early_stop_patience: 2
+  seeds: [0, 1, 2, 3, 4]
+  device: cuda
+  num_workers: 4
+  use_wandb: false
+  wandb_project: pattern-cnn
+
+# Rolling window — expand from 3yr up to 5yr, then trailing 5yr:
+#   1996-98  train/val → 1999 test        (3-yr)
+#   1996-99  train/val → 2000 test        (4-yr)
+#   1996-2000 train/val → 2001 test       (5-yr, cap reached)
+#   1997-2001 train/val → 2002 test       (trailing 5-yr)
+#   ...
+#   2020-24  train/val → 2025 test
+split:
+  mode: rolling
+  start_year: 1996
+  train_years: 3          # starting window length
+  max_train_years: 5      # cap → trailing 5-year window once reached
+  val_fraction: 0.30
+  test_years: 1
+  retrain_every_years: 1
+
+backtest:
+  n_deciles: 10
+  weighting: [equal, value]
+  holding_period_days: 20
+  newey_west_lags: 19
+
+output_dir: /data/Pattern/runs/rolling

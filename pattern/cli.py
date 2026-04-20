@@ -20,12 +20,14 @@ Phase 1 pipeline:
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 import logging
 import os
 import random
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -68,29 +70,54 @@ def _make_run_dir(output_dir: Path, cfg: Config) -> Path:
     return run_dir
 
 
-def cmd_train(cfg: Config) -> None:
-    run_dir = _make_run_dir(Path(cfg.output_dir), cfg)
+def cmd_train(
+    cfg: Config,
+    window_indices: list[int] | None = None,
+    run_dir: Path | None = None,
+) -> Path:
+    """Train one pathway. Supports sharded multi-GPU runs:
+
+    * `window_indices`  — subset of window IDs this process should handle;
+                          None means all windows.
+    * `run_dir`         — pre-created shared run dir (for multi-GPU shards).
+                          None means create a fresh timestamped dir.
+
+    GPU selection is done by the caller (`CUDA_VISIBLE_DEVICES=N python -m ...`)
+    so each shard sees exactly one device as `cuda:0`.
+    """
+    if run_dir is None:
+        run_dir = _make_run_dir(Path(cfg.output_dir), cfg)
+    else:
+        run_dir = Path(run_dir)
+        run_dir.mkdir(parents=True, exist_ok=True)
     log.info(f"Run directory: {run_dir}")
 
-    # Save resolved config + reproducibility artifacts (PRD §7)
+    # Save resolved config + reproducibility artifacts (PRD §7).
+    # Only the first shard writes these — subsequent shards see the files and skip.
     import subprocess, yaml
-    with open(run_dir / "config.yaml", "w") as f:
-        yaml.dump(cfg.model_dump(mode="json"), f, default_flow_style=False)
-    try:
-        git_sha = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=Path(__file__).parent.parent,
-            stderr=subprocess.DEVNULL).decode().strip()
-    except Exception:
-        git_sha = "unavailable"
-    with open(run_dir / "git_sha.txt", "w") as f:
-        f.write(git_sha + "\n")
-    try:
-        pip_freeze = subprocess.check_output(
-            ["pip", "freeze"], stderr=subprocess.DEVNULL).decode()
-        with open(run_dir / "pip_freeze.txt", "w") as f:
-            f.write(pip_freeze)
-    except Exception:
-        pass
+    cfg_path = run_dir / "config.yaml"
+    if not cfg_path.exists():
+        with open(cfg_path, "w") as f:
+            yaml.dump(cfg.model_dump(mode="json"), f, default_flow_style=False)
+    sha_path = run_dir / "git_sha.txt"
+    if not sha_path.exists():
+        try:
+            git_sha = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"], cwd=Path(__file__).parent.parent,
+                stderr=subprocess.DEVNULL).decode().strip()
+        except Exception:
+            git_sha = "unavailable"
+        with open(sha_path, "w") as f:
+            f.write(git_sha + "\n")
+    pip_path = run_dir / "pip_freeze.txt"
+    if not pip_path.exists():
+        try:
+            pip_freeze = subprocess.check_output(
+                ["pip", "freeze"], stderr=subprocess.DEVNULL).decode()
+            with open(pip_path, "w") as f:
+                f.write(pip_freeze)
+        except Exception:
+            pass
 
     # ── 1. Load data ──────────────────────────────────────────────────────────
     df = load_data(cfg.data.csv_path, cfg.data.date_format, cfg.data.min_history_days)
@@ -123,8 +150,25 @@ def cmd_train(cfg: Config) -> None:
     # ── 5–8. Loop over all retraining windows ────────────────────────────────
     all_test_predictions = []
 
+    # window_stats.csv is an append-only log; multiple shards write into it concurrently,
+    # so only create the header if absent.
+    stats_path = run_dir / "window_stats.csv"
+    if not stats_path.exists():
+        with open(stats_path, "w", newline="") as f:
+            csv.writer(f).writerow([
+                "window_idx", "train_years", "val_years", "test_years",
+                "n_train", "n_val", "n_test", "ensemble_size",
+                "wall_seconds", "gpu_peak_mem_gb",
+            ])
+
+    subset = set(window_indices) if window_indices is not None else None
     for window_idx, split in enumerate(splits):
+        if subset is not None and window_idx not in subset:
+            continue
         log.info(f"\n{'='*60}\nRetraining window {window_idx+1}/{len(splits)}\n{'='*60}")
+        window_t0 = time.time()
+        if torch.cuda.is_available():
+            torch.cuda.reset_peak_memory_stats()
 
         train_df = split["train"]
         val_df   = split["val"]
@@ -143,7 +187,7 @@ def cmd_train(cfg: Config) -> None:
         # Pixel stats keyed by train split (per PRD §5 + Codex review)
         pix_mean, pix_std = compute_pixel_stats(cache_dir, train_idx)
 
-        window_preds = []
+        window_probs, window_logits, window_embs = [], [], []
         for k in range(cfg.train.ensemble_size):
             seed = cfg.train.seeds[k] if k < len(cfg.train.seeds) else k
             _seed_everything(seed)
@@ -169,34 +213,102 @@ def cmd_train(cfg: Config) -> None:
             model, _ = train_model(model, train_loader, val_loader,
                                    cfg.train, run_dir, model_name, seed)
 
-            probs, _ = predict(model, test_loader, cfg.train.device)
-            window_preds.append(probs[:, 1].numpy())
+            probs, _, logits, embs = predict(
+                model, test_loader, cfg.train.device, return_features=True,
+            )
+            window_probs.append(probs[:, 1].numpy().astype(np.float32))
+            window_logits.append(logits.numpy().astype(np.float32))
+            window_embs.append(embs.numpy().astype(np.float32))
 
         # Assemble predictions for this window's test set
-        test_meta = index_df.iloc[test_idx][["ticker", "end_date", "forward_return", "label"]].reset_index(drop=True)
-        for k, p in enumerate(window_preds):
+        test_meta = index_df.iloc[test_idx][
+            ["ticker", "end_date", "forward_return", "label"]
+        ].reset_index(drop=True)
+        for k, p in enumerate(window_probs):
             test_meta[f"p_up_{k}"] = p
-        p_up_cols = [c for c in test_meta.columns if c.startswith("p_up_")]
+        p_up_cols = [f"p_up_{k}" for k in range(len(window_probs))]
         test_meta["p_up_mean"] = test_meta[p_up_cols].mean(axis=1)
         test_meta["p_up_std"]  = test_meta[p_up_cols].std(axis=1)
-        test_meta["window"]    = window_idx
+        # Ensemble-mean logits (useful for calibration / analysis)
+        logit_stack = np.stack(window_logits, axis=0)      # (K, N, 2)
+        test_meta["logit_down_mean"] = logit_stack[:, :, 0].mean(axis=0)
+        test_meta["logit_up_mean"]   = logit_stack[:, :, 1].mean(axis=0)
+
+        # Cross-sectional rank/decile per formation date (ticker-level analysis)
+        test_meta["rank_pct"] = (
+            test_meta.groupby("end_date")["p_up_mean"]
+                     .rank(method="average", pct=True)
+                     .astype(np.float32)
+        )
+        test_meta["decile"] = (
+            test_meta.groupby("end_date")["p_up_mean"]
+                     .transform(lambda s: pd.qcut(
+                         s.rank(method="first"),
+                         q=cfg.backtest.n_deciles,
+                         labels=False,
+                         duplicates="drop",
+                     ))
+                     .astype("Int8")
+        )
+        test_meta["window"] = np.int16(window_idx)
         all_test_predictions.append(test_meta)
+        test_meta.to_parquet(run_dir / f"window_{window_idx:02d}_predictions.parquet",
+                             index=False)
+
+        # Per-window embeddings + raw logits — the heavy artifacts go in their
+        # own file per window so the main predictions parquet stays compact.
+        emb_stack   = np.stack(window_embs, axis=0)        # (K, N, C)
+        np.savez_compressed(
+            run_dir / f"window_{window_idx:02d}_features.npz",
+            ticker         = test_meta["ticker"].to_numpy(),
+            end_date       = test_meta["end_date"].astype("datetime64[ns]").to_numpy(),
+            logits         = logit_stack,                  # (K, N, 2) fp32
+            embeddings     = emb_stack,                    # (K, N, C) fp32
+            embedding_mean = emb_stack.mean(axis=0),       # (N, C)    fp32
+            window_idx     = np.int32(window_idx),
+        )
+
+        wall = time.time() - window_t0
+        peak_gb = (
+            torch.cuda.max_memory_allocated() / 1e9
+            if torch.cuda.is_available() else 0.0
+        )
+        log.info(
+            f"Window {window_idx} done  wall={wall:.1f}s  peak_gpu={peak_gb:.2f}GB  "
+            f"test_n={len(test_meta):,}"
+        )
+        with open(stats_path, "a", newline="") as f:
+            csv.writer(f).writerow([
+                window_idx,
+                int(pd.to_datetime(train_df["Date"]).dt.year.nunique()),
+                int(pd.to_datetime(val_df["Date"]).dt.year.nunique()) if len(val_df) else 0,
+                int(pd.to_datetime(test_df["Date"]).dt.year.nunique()) if len(test_df) else 0,
+                len(train_df), len(val_df), len(test_df),
+                cfg.train.ensemble_size,
+                round(wall, 1), round(peak_gb, 3),
+            ])
 
     # ── Combine all windows and save ─────────────────────────────────────────
-    pred_df  = pd.concat(all_test_predictions, ignore_index=True)
-    out_path = run_dir / "predictions.parquet"
-    pred_df.to_parquet(out_path, index=False)
-    log.info(f"Predictions saved: {out_path}")
-
-    # Quick AUC check
-    try:
-        from sklearn.metrics import roc_auc_score
-        auc = roc_auc_score(pred_df["label"], pred_df["p_up_mean"])
-        log.info(f"Test AUC: {auc:.4f}")
-    except ImportError:
-        pass
+    # Shard runs leave the final concat to the driver (which also sees the
+    # other shards' per-window parquets). A full-pathway run writes the combined
+    # predictions.parquet here.
+    if subset is None:
+        pred_df  = pd.concat(all_test_predictions, ignore_index=True)
+        out_path = run_dir / "predictions.parquet"
+        pred_df.to_parquet(out_path, index=False)
+        log.info(f"Predictions saved: {out_path}")
+        try:
+            from sklearn.metrics import roc_auc_score
+            auc = roc_auc_score(pred_df["label"], pred_df["p_up_mean"])
+            log.info(f"Test AUC: {auc:.4f}")
+        except ImportError:
+            pass
+    else:
+        log.info(f"Shard complete — {len(all_test_predictions)} windows; "
+                 f"final concat deferred to driver")
 
     log.info(f"Run complete: {run_dir}")
+    return run_dir
 
 
 def cmd_backtest(run_dir: Path, cfg: Config) -> None:
@@ -206,12 +318,33 @@ def cmd_backtest(run_dir: Path, cfg: Config) -> None:
     run_backtest(run_dir, cfg.backtest, holding_period_days=holding)
 
 
+def _parse_window_indices(spec: str) -> list[int]:
+    """Parse "0,3,5-9" into [0,3,5,6,7,8,9]."""
+    out: list[int] = []
+    for tok in spec.split(","):
+        tok = tok.strip()
+        if not tok:
+            continue
+        if "-" in tok:
+            a, b = tok.split("-")
+            out.extend(range(int(a), int(b) + 1))
+        else:
+            out.append(int(tok))
+    return sorted(set(out))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Pattern CNN pipeline")
     sub    = parser.add_subparsers(dest="cmd")
 
     train_p = sub.add_parser("train")
     train_p.add_argument("--config", default="configs/debug.yaml")
+    train_p.add_argument("--window-indices", default=None,
+                         help="Comma/range spec of windows to process (e.g. '0,3,5-9'). "
+                              "Omit to train all windows.")
+    train_p.add_argument("--run-dir", default=None,
+                         help="Reuse an existing run directory (used by multi-GPU driver "
+                              "so shards share a single output dir).")
 
     bt_p = sub.add_parser("backtest")
     bt_p.add_argument("--config", default="configs/debug.yaml")
@@ -222,7 +355,9 @@ def main() -> None:
 
     if args.cmd == "train":
         cfg = Config.from_yaml(args.config)
-        cmd_train(cfg)
+        win_idx = _parse_window_indices(args.window_indices) if args.window_indices else None
+        run_dir = Path(args.run_dir) if args.run_dir else None
+        cmd_train(cfg, window_indices=win_idx, run_dir=run_dir)
     elif args.cmd == "backtest":
         cfg = Config.from_yaml(args.config)
         cmd_backtest(Path(args.run_dir), cfg)

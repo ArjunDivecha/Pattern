@@ -79,7 +79,7 @@ def _process_ticker(ticker: str) -> List[dict]:
         ohlcv, tri = result
 
         img = render_window(
-            ohlcv, tri, window, height, width, ratio, inc_ma, inc_vol
+            ohlcv, tri, window, height, width, ratio, inc_ma, inc_vol,
         )
         if img is None:
             continue

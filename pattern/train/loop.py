@@ -244,26 +244,38 @@ def predict(
     model: ChartCNN,
     loader: DataLoader,
     device_str: str = "auto",
-) -> Tuple[torch.Tensor, torch.Tensor]:
+    return_features: bool = False,
+):
     """
     Run inference on all batches.
 
-    Returns:
-        probs:  (N, 2) float tensor [P(down), P(up)] for each sample.
-        labels: (N,) int tensor.
+    If return_features is False (default) returns (probs, labels).
+    If True returns (probs, labels, logits, embeddings) where:
+        logits:     (N, 2) pre-softmax tensor
+        embeddings: (N, C_last) global-avg-pooled penultimate features
     """
     device = _get_device(device_str)
     model  = model.to(device).eval()
     non_blocking = device.type == "cuda"
 
-    all_probs  = []
-    all_labels = []
+    all_probs, all_labels = [], []
+    all_logits, all_embs  = [], []
 
     with torch.no_grad():
         for x, y in loader:
             x = x.to(device, non_blocking=non_blocking)
-            p = model.predict_proba(x).cpu()
-            all_probs.append(p)
+            if return_features:
+                logits, emb = model.forward_with_features(x)
+                probs = torch.softmax(logits, dim=1)
+                all_logits.append(logits.cpu())
+                all_embs.append(emb.cpu())
+            else:
+                probs = model.predict_proba(x)
+            all_probs.append(probs.cpu())
             all_labels.append(y)
 
-    return torch.cat(all_probs), torch.cat(all_labels)
+    probs  = torch.cat(all_probs)
+    labels = torch.cat(all_labels)
+    if return_features:
+        return probs, labels, torch.cat(all_logits), torch.cat(all_embs)
+    return probs, labels

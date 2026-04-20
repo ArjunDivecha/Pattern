@@ -102,7 +102,7 @@ def render_window(
     tri0 = tri_w[0]
     if not np.isfinite(tri0) or tri0 <= 0:
         return None
-    p = tri_w / tri0   # normalised close series for the window, p[0] = 1.0
+    p = tri_w / tri0   # normalised close, p[0] = 1.0
 
     # Step 3: scale O/H/L by p_t / Close_raw_t
     # Only use Close_raw for the scale factor; if Close is missing the normalised

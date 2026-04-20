@@ -68,6 +68,29 @@ def newey_west_variance(x: np.ndarray, lags: int) -> float:
     return float(long_run_var / n)
 
 
+def _non_overlapping_max_drawdown(x: np.ndarray, h: int) -> float:
+    """Max drawdown on the non-overlapping sub-sample (every h-th observation).
+
+    The overlapping cumulative log-return path (cumsum of h-day returns
+    sampled daily) is NOT a valid strategy wealth path — its cumulative
+    level is inflated h-fold relative to a real ladder strategy. Drawdown
+    on that inflated series is not a drawdown anyone can experience.
+
+    The honest alternative is to sub-sample every h-th formation day,
+    yielding a non-overlapping series of h-day log returns whose cumsum
+    IS a valid wealth path (for someone who holds one 20-day portfolio
+    at a time). We report DD on that series.
+    """
+    if len(x) < 2:
+        return 0.0
+    sub = x[::h]
+    if len(sub) < 2:
+        return 0.0
+    cum = np.cumsum(sub)
+    run_max = np.maximum.accumulate(cum)
+    return float((cum - run_max).min())
+
+
 def summarize_series(
     returns: pd.Series,
     holding_period_days: int,
@@ -101,11 +124,9 @@ def summarize_series(
     nw_se  = float(np.sqrt(nw_var)) if nw_var == nw_var else float("nan")
     nw_t   = mu / nw_se if nw_se and nw_se > 0 else float("nan")
 
-    # Cumulative log-return path & max drawdown
-    cum = np.cumsum(x)
-    run_max = np.maximum.accumulate(cum)
-    drawdown = cum - run_max
-    max_dd = float(drawdown.min()) if len(drawdown) else 0.0
+    # Reported DD uses the non-overlapping sub-sample (valid wealth path).
+    max_dd = _non_overlapping_max_drawdown(x, holding_period_days)
+    cum_log_return = float(np.cumsum(x[::holding_period_days]).sum())
 
     return {
         "n_obs":           int(n),
@@ -116,9 +137,79 @@ def summarize_series(
         "sharpe_ann":      sharpe_ann,
         "nw_se":           nw_se,
         "nw_tstat":        nw_t,
-        "cum_log_return":  float(cum[-1]),
+        "cum_log_return":  cum_log_return,
         "max_drawdown":    max_dd,
         "nw_lags":         int(nw_lags),
+    }
+
+
+def compute_turnover(
+    pred_df: pd.DataFrame,
+    score_col: str = "p_up_mean",
+    n_deciles: int = 10,
+    target_decile: int | None = None,
+) -> Dict[str, float]:
+    """Decile-membership turnover between consecutive formation days.
+
+    Turnover_t = |S_t Δ S_{t-1}| / (|S_t| + |S_{t-1}|)
+    When decile sizes are equal this equals the classic fraction-replaced
+    metric (Jegadeesh-Titman): 0 = identical book, 1 = fully disjoint.
+
+    Returns per-day and per-month (×21 trading days) turnover for the long
+    decile (default: `n_deciles`), the short decile (1), and the LS book
+    (mean of the two).
+    """
+    from pattern.backtest.deciles import _assign_deciles
+
+    needed = {"end_date", "ticker", score_col}
+    missing = needed - set(pred_df.columns)
+    if missing:
+        raise ValueError(f"pred_df missing columns for turnover: {missing}")
+
+    df = pred_df[["end_date", "ticker", score_col]].dropna(subset=[score_col]).copy()
+    # Drop sparse days (same rule as build_portfolios)
+    day_sizes = df.groupby("end_date").size()
+    keep_days = day_sizes[day_sizes >= 2 * n_deciles].index
+    df = df[df["end_date"].isin(keep_days)]
+    df["decile"] = (
+        df.groupby("end_date", group_keys=False)[score_col]
+          .transform(lambda s: _assign_deciles(s, n_deciles))
+    )
+    df = df.dropna(subset=["decile"])
+    df["decile"] = df["decile"].astype(int)
+
+    top_decile = n_deciles if target_decile is None else target_decile
+    bot_decile = 1
+
+    def _per_decile_turnover(dec: int) -> float:
+        by_day = {d: set(grp["ticker"])
+                  for d, grp in df[df["decile"] == dec].groupby("end_date")}
+        days = sorted(by_day.keys())
+        if len(days) < 2:
+            return float("nan")
+        vals = []
+        for a, b in zip(days[:-1], days[1:]):
+            sa, sb = by_day[a], by_day[b]
+            denom = len(sa) + len(sb)
+            if denom == 0:
+                continue
+            vals.append(len(sa.symmetric_difference(sb)) / denom)
+        return float(np.mean(vals)) if vals else float("nan")
+
+    long_to  = _per_decile_turnover(top_decile)
+    short_to = _per_decile_turnover(bot_decile)
+
+    # LS turnover averages the two books (equal capital)
+    ls_to = np.nanmean([long_to, short_to])
+
+    tdays_per_month = BUSINESS_DAYS_PER_YEAR / 12
+    return {
+        "long_turnover_per_day":    long_to,
+        "short_turnover_per_day":   short_to,
+        "ls_turnover_per_day":      float(ls_to),
+        "long_turnover_per_month":  long_to  * tdays_per_month if long_to  == long_to  else float("nan"),
+        "short_turnover_per_month": short_to * tdays_per_month if short_to == short_to else float("nan"),
+        "ls_turnover_per_month":    ls_to    * tdays_per_month if ls_to    == ls_to    else float("nan"),
     }
 
 
