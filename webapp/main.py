@@ -2,16 +2,15 @@
 =============================================================================
 SCRIPT NAME: main.py
 =============================================================================
-
 INPUT:
 - User-provided stock ticker via web form
-- runs/final/equal_20260420_054833_cdef6809/ensemble_{0..4}.pt
+- runs/final/ewma_5yr_20260420_054833_cdef6809/ensemble_{0..4}.pt
 
 OUTPUT:
 - Web page showing rendered chart, score (0-100), confidence, and label
 
 DESCRIPTION:
-FastAPI web application for live stock scoring. Serves a beautiful
+FastAPI web application for live stock scoring.  Serves a beautiful
 single-page UI where users enter a ticker and get an instant CNN-based
 bullish/bearish score with a rendered candlestick chart.
 
@@ -23,26 +22,30 @@ USAGE:
 from __future__ import annotations
 
 import base64
+import sys
 from pathlib import Path
 
-from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+# Ensure the repo root is on sys.path so "from webapp.scorer" works.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
-from scorer import score_ticker
+from fastapi import FastAPI, Form
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+
+from webapp.scorer import score_ticker
 
 app = FastAPI(title="Pattern Live Scorer", version="1.0")
 
-# Templates
-TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+# Serve static HTML directly (no Jinja2 needed — avoids Python 3.14 dict-key cache bug)
+INDEX_HTML = Path(__file__).resolve().parent / "templates" / "index.html"
 
 
-@app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
+@app.get("/", response_class=FileResponse)
+async def index():
     """Serve the main scoring page."""
-    return templates.TemplateResponse("index.html", {"request": request})
+    media_type="text/html; charset=utf-8"
+    return str(INDEX_HTML)
 
 
 @app.post("/score")
