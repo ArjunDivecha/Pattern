@@ -157,6 +157,9 @@ def main() -> None:
     ap.add_argument("--bot-n", type=int, default=None,
                     help="absolute # of tickers in bottom bucket (overrides --bot-pct)")
     ap.add_argument("--hold-days", type=int, default=20)
+    ap.add_argument("--monthly", action="store_true",
+                    help="input is already monthly non-overlapping — skip "
+                         "iloc sub-sampling and use plain t-stat (no NW).")
     ap.add_argument("--min-date", type=str, default=None,
                     help="e.g. 2000-01-01")
     args = ap.parse_args()
@@ -192,21 +195,30 @@ def main() -> None:
           f"mean n_bot={port['n_bot'].mean():.1f}  "
           f"({sel_label})")
 
-    # Non-overlap monthly sample (every hold_days-th date).
-    monthly = port.iloc[::args.hold_days].copy()
+    # Non-overlap sample.  In --monthly mode the input is ALREADY non-overlap
+    # (one row per ticker per month), so we use every row; otherwise we take
+    # every hold_days-th row from a daily overlapping series.
+    if args.monthly:
+        monthly = port.copy()
+        nw_lag = 0                         # independent obs → plain t-stat
+    else:
+        monthly = port.iloc[::args.hold_days].copy()
+        nw_lag = args.hold_days - 1
 
     rows = {}
     for col in ("TOP", "BOT", "LS", "EW"):
         rows[col] = ann_stats(monthly[col], hold_days=args.hold_days)
 
-    # Newey-West t on the full daily (overlapping) LS series — lag = hold_days - 1.
-    nw_t_ls = newey_west_t(port["LS"].to_numpy(), lag=args.hold_days - 1)
-    nw_t_top = newey_west_t(port["TOP"].to_numpy(), lag=args.hold_days - 1)
-    nw_t_bot = newey_west_t(port["BOT"].to_numpy(), lag=args.hold_days - 1)
-    nw_t_ew  = newey_west_t(port["EW"].to_numpy(),  lag=args.hold_days - 1)
+    # Newey-West (lag=0 reduces to plain t) for significance reporting.
+    nw_t_ls  = newey_west_t(monthly["LS"].to_numpy(),  lag=nw_lag)
+    nw_t_top = newey_west_t(monthly["TOP"].to_numpy(), lag=nw_lag)
+    nw_t_bot = newey_west_t(monthly["BOT"].to_numpy(), lag=nw_lag)
+    nw_t_ew  = newey_west_t(monthly["EW"].to_numpy(),  lag=nw_lag)
 
     summary = pd.DataFrame(rows).T
-    summary["nw_t_daily"] = [nw_t_top, nw_t_bot, nw_t_ls, nw_t_ew]
+    summary["nw_t_daily" if not args.monthly else "t_monthly"] = [
+        nw_t_top, nw_t_bot, nw_t_ls, nw_t_ew
+    ]
     summary.index.name = "portfolio"
 
     print()

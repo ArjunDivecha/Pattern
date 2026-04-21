@@ -95,7 +95,11 @@ def main() -> None:
     ap.add_argument("--out-parquet", type=Path,
                     default=ROOT / "runs" / "etf_expanding" / "live_predictions.parquet")
     ap.add_argument("--tail-days", type=int, default=30,
-                    help="number of trailing trading days per ticker to score")
+                    help="number of trailing trading days per ticker to consider")
+    ap.add_argument("--cadence", choices=["monthly", "daily"], default="monthly",
+                    help="monthly = score only the last trading day of each "
+                         "calendar month in the tail window (default).  "
+                         "daily = score every day in the tail window.")
     ap.add_argument("--device", default="auto", choices=["auto", "mps", "cpu", "cuda"])
     args = ap.parse_args()
 
@@ -142,6 +146,15 @@ def main() -> None:
         # Score the last `tail_days` rows for this ticker — these include
         # the rows whose 20-day forward return isn't yet available.
         tail = tdf.iloc[-args.tail_days:]
+        if args.cadence == "monthly":
+            # Keep only the CANONICAL last trading day of each calendar month
+            # in the tail — the latest date for that month in the full
+            # universe (`df`), not just this ticker.  Live scoring runs at
+            # ≤ 1 row/ticker/month and all tickers align on the same dates.
+            ym = tail["Date"].dt.to_period("M")
+            canonical_by_month = df.groupby(df["Date"].dt.to_period("M"))["Date"].max()
+            mask = tail["Date"].values == ym.map(canonical_by_month).values
+            tail = tail.loc[mask]
         for _, row in tail.iterrows():
             end_date = row["Date"]
             res = get_window(tdf, end_date, window, lookback)

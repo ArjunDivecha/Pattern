@@ -139,6 +139,10 @@ def main() -> None:
                     help="where to write predictions.parquet")
     ap.add_argument("--device", default="auto", choices=["auto", "mps", "cpu", "cuda"])
     ap.add_argument("--chunk", type=int, default=4096)
+    ap.add_argument("--cadence", choices=["monthly", "daily"], default="monthly",
+                    help="monthly = score only the last trading day of each "
+                         "calendar month per ticker (default).  daily = score "
+                         "every row in the cache (legacy behaviour).")
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)s  %(message)s")
@@ -162,6 +166,22 @@ def main() -> None:
     max_year = int(years.max())
     log.info(f"Cache: {len(index_df):,} rows  {dates.min().date()} → {dates.max().date()}")
 
+    # Cadence filter.  We keep the full daily index for pixel-stat computation
+    # (matching training normalisation), but restrict test rows (the rows we
+    # actually score) to the canonical last trading day of each calendar
+    # month (the latest date appearing anywhere in the cache for that month).
+    # Tickers without a row on that exact date are dropped for that month.
+    if args.cadence == "monthly":
+        ym = dates.dt.to_period("M")
+        canonical = pd.Series(dates.values, index=dates.index).groupby(ym).transform("max")
+        score_mask = (dates.values == canonical.values)
+        log.info(f"Cadence=monthly: scoring "
+                 f"{score_mask.sum():,} / {len(index_df):,} rows "
+                 f"({score_mask.mean()*100:.1f}% of cache)  "
+                 f"unique dates={pd.Series(dates.values[score_mask]).nunique()}")
+    else:
+        score_mask = np.ones(len(index_df), dtype=bool)
+
     n_windows = max_year - FIRST_TEST_YEAR + 1   # 1999 → max_year inclusive
     log.info(f"Expanding pathway has {n_windows} test years: "
              f"{FIRST_TEST_YEAR} → {max_year}")
@@ -177,7 +197,7 @@ def main() -> None:
         test_year = FIRST_TEST_YEAR + w
         train_year_hi = FIRST_TEST_YEAR - 1 + w    # 1998 + w
 
-        test_mask = years == test_year
+        test_mask = (years == test_year) & score_mask
         test_idx = np.flatnonzero(test_mask).astype(np.int64)
         if len(test_idx) == 0:
             log.warning(f"  window {w:02d}  test_year={test_year}  no ETF rows — skipping")
