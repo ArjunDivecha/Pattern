@@ -49,6 +49,9 @@ def main() -> None:
                     help="where to write images.npy + index.parquet")
     ap.add_argument("--train-config", type=Path, default=DEFAULT_TRAIN_CONFIG,
                     help="source of ImageConfig/LabelConfig (must match training)")
+    ap.add_argument("--monthly", action="store_true",
+                    help="render only the last trading day of each calendar month "
+                         "per ticker (20× smaller cache, monthly-cadence predictions)")
     args = ap.parse_args()
 
     logging.basicConfig(
@@ -69,6 +72,22 @@ def main() -> None:
           f"({df['Date'].min().date()} → {df['Date'].max().date()})")
 
     labelled = compute_labels(df, horizon=lbl_cfg.horizon)
+
+    if args.monthly:
+        import pandas as pd
+        date_col = "Date" if "Date" in labelled.columns else "date"
+        tick_col = "Ticker" if "Ticker" in labelled.columns else "ticker"
+        labelled = labelled.copy()
+        labelled[date_col] = pd.to_datetime(labelled[date_col])
+        labelled["_ym"] = labelled[date_col].dt.to_period("M")
+        before = len(labelled)
+        labelled = (labelled.sort_values([tick_col, date_col])
+                             .groupby([tick_col, "_ym"], as_index=False, sort=False)
+                             .tail(1)
+                             .drop(columns="_ym")
+                             .reset_index(drop=True))
+        print(f"Monthly filter: {before:,} → {len(labelled):,} rows "
+              f"({len(labelled)/before*100:.1f}%)")
 
     build_cache(
         labelled_df=labelled,
