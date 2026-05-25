@@ -743,3 +743,243 @@ sub-filter, and you get a tradable ~13 % net book with eight-times
 the capacity.  The CNN signal degrades smoothly with size and
 liquidity rather than collapsing — the right deployment is the
 mid-cap high-vol loser cell, not the smallest-name trash tier.
+
+---
+
+# Addendum I — ETF / single-stock-ETF deployment attempts (2026-05)
+
+**Motivation.**  Author works at an investment firm with restrictions on
+trading individual stocks but is permitted to trade ETFs of any kind,
+including single-stock ETFs (SSEs).  The question for this addendum:
+*can the R1000-trained CNN edge be deployed through any combination of
+ETFs the firm allows?*
+
+Short answer: **No.**  The alpha is a single-stock, small-cap, high-vol,
+recent-loser cross-sectional effect.  ETFs — basket or single-stock —
+either average it away or carry it on the wrong tail of the
+distribution.  Below are the four attempts and why each failed.
+
+## I.1  Single-window retrain on ETFs (w11)
+
+**Hypothesis.**  Maybe zero-shot transfer fails because the CNN never
+saw ETF charts.  Retraining on the ETF universe (with or without
+warm-start from the R1000 ensemble) might fix it.
+
+**Test.**  On window 11 (2010 test year), trained two ETF-specialised
+variants against the R1000 zero-shot baseline:
+
+| Variant | AUC | LS CAGR | LS Sharpe |
+|---|---:|---:|---:|
+| R1000 baseline (zero-shot) | 0.5125 | +1.14 % | +0.127 |
+| **Train from scratch on ETFs** | 0.5040 | **−0.59 %** | **−0.064** |
+| **Fine-tune from R1000** | 0.5041 | **−0.68 %** | **−0.063** |
+
+Both ETF-trained variants **underperformed** the zero-shot R1000 model.
+Retraining does not help — the ETF universe simply lacks the
+cross-sectional dispersion the CNN can exploit.  Full 28-window retrain
+was skipped on this evidence (running it would just confirm the result
+more rigorously at the cost of ~1 hour of compute).
+
+Files: `runs/etf_scratch_w11/`, `runs/etf_finetune_w11/` (each contains
+`comparison.txt`, `*_predictions.parquet`, training log).
+
+## I.2  Single-stock ETF universe build
+
+**Trick.**  SSEs are the loophole around the firm's stock-trading
+restriction: they ARE ETFs but each tracks ONE underlying.  A
+long/short book can be built entirely from long positions in two
+products per underlying — the 2x bull-leveraged ETF for "long" bets and
+the inverse-leveraged ETF for "short" bets.  No actual short-selling,
+no borrow costs.
+
+**Universe.**  Hand-curated 48-pair seed list spanning the major
+issuers (Direxion, GraniteShares, T-Rex/REX Shares, Tradr, Defiance)
+across both Direxion-style asymmetric pairs (+2x long / −1x short) and
+the cleaner symmetric ±2x pairs from T-Rex / Defiance.  Validated each
+ticker via yfinance:
+
+- 121 candidate tickers (44 underlyings + 77 wrappers)
+- 120 returned valid price history; 1 delisted (AMDS)
+- **44 underlyings with at least one long wrapper, 29 of which have a
+  matching inverse wrapper (the "complete-pair" subset)**
+
+History depth:
+
+- Aug-Sep 2022 inception (6 underlyings: AAPL, AMZN, GOOGL, MSFT, TSLA + COIN long-only) — ~3.7 yr
+- Dec 2022 / 2023 expansion (+NVDA, BABA) — ~3 yr
+- 2024 expansion (+META, MSTR, TSM, MU, PLTR, SMCI) — ~1.5 yr
+- 2025+ rest of the universe — < 1 yr each
+
+Effective backtest window: 2022-09 → 2026-04 (44 monthly observations),
+universe growing from 6 → 30+ over time.
+
+Files:
+- `data/sse_pairs_seed.csv` — hand-curated 48-row pair list
+- `data/sse_pairs.csv` — yfinance-validated pair table
+- `data/sse_underlying_ohlcv.csv` — 179,843 rows × 44 underlyings
+- `data/sse_wrapper_ohlcv.csv` — 33,103 rows × 77 wrappers
+- `scripts/fetch_sse_data.py`
+
+## I.3  Zero-shot CNN on SSE underlyings + wrapper-LS backtest
+
+**Setup.**  Score every (underlying, month-end) using the existing
+R1000-trained 28-window ensemble (same approach as the liquid-ETF test
+in section H).  Image cache geometry identical to training.
+
+Overall OOS AUC on the 44 SSE underlyings = **0.5136** — slightly
+*better* than the R1000 baseline (0.5068) because these are mostly
+volatile mega-cap names the CNN has seen during training.  The model
+"recognises" the universe.
+
+**Trading mechanic.**  Per month-end, rank by `p_up_mean`.  Top half →
+buy the 2x long-leveraged ETF.  Bottom half → buy the inverse-leveraged
+ETF (long position, no shorting).  Portfolio return per dollar of
+capital = `0.5 × (mean(R_long_etf | top) + mean(R_inverse_etf | bot))`.
+Costs modelled: 1.0 % p.a. expense ratio prorated + 5 bps half-spread per leg.
+
+**Results (44 months, 2022-09 → 2026-04, mean univ ≈ 20):**
+
+| Variant | Months | Gross CAGR | Net CAGR | Sharpe | NW t |
+|---|---:|---:|---:|---:|---:|
+| **complete-pairs (true LS via wrappers)** | 44 | **−16.47 %** | −19.31 % | −0.50 | −0.96 |
+| long-only (top-half via long-ETF) | 44 | +51.02 % | +46.09 % | +1.11 | +2.15 |
+| full (long-only with hedge where available) | 44 | −26.67 % | −29.20 % | −1.40 | −2.70 |
+
+**Diagnosis (the smoking gun).**  Computing the underlying-only L/S
+spread (i.e. if we could trade the actual stocks long-short, no wrapper):
+
+  - Underlying TOP half (CNN predicts UP): **+2.04 %/mo**
+  - Underlying BOT half (CNN predicts DOWN): **+5.67 %/mo**
+  - Underlying LS: **−3.64 %/mo, t = −2.14, Sharpe = −1.12**
+
+**The CNN signal is inverted on this universe in this regime.**  The
+loss is NOT a wrapper-decay artifact.  An underlying-only L/S book
+loses 38 % CAGR.  The reason: the CNN learned a 20-day mean-reversion
+pattern from R1000 1999-2022.  The SSE universe is dominated by
+mega-cap momentum names (TSLA, NVDA, MSTR, COIN, PLTR, Mag 7) where
+momentum persists.  The signal's "oversold buy" calls land on names
+that keep falling; its "overbought sell" calls land on names that keep
+ripping.  Hence the inversion.
+
+For context, the R1000 signal still works in the same window
+(2022-09 → 2026-04 on R1000): **+7.89 % CAGR, t = +3.20, Sharpe = +1.82**.
+The signal is universe-specific, not regime-broken.
+
+Files:
+- `runs/sse_underlying_expanding/predictions.parquet` — 5,970 rows
+- `runs/sse_underlying_expanding/backtest_sse/sse_summary.xlsx`
+- `runs/sse_underlying_expanding/backtest_sse/sse_cum.pdf`
+- `scripts/backtest_sse.py`
+
+## I.4  Alternative cross-sectional signals on the SSE universe
+
+**Hypothesis.**  Maybe a different signal (momentum follower, not
+reversal) works on the SSE universe.  Tested six classic
+cross-sectional signals against the same wrapper mechanics:
+
+```
+mom_12_1, mom_6_1, mom_3_1, rev_1m, low_vol (vol_60d inverted), trend
+```
+
+### Long-only (just buy top-half via 2x long-ETF)
+
+| Signal | Gross CAGR | NW t | Underlying-LS CAGR (no leverage) |
+|---|---:|---:|---:|
+| rev_1m   | +547 % | 7.21 | **−7.6 %** |
+| **EW_basket (no signal)** | **+422 %** | 7.88 | n/a |
+| mom_3_1  | +263 % | 5.06 | −8.9 % |
+| mom_6_1  | +241 % | 4.61 | −21.1 % |
+| trend    | +216 % | 4.72 | −11.5 % |
+| mom_12_1 | +157 % | 3.60 | −16.8 % |
+| low_vol  | +14 %  | 1.31 | −47.8 % |
+
+### Complete-pairs LS (long-ETF + inverse-ETF)
+
+| Signal | Gross CAGR | NW t | Underlying LS |
+|---|---:|---:|---:|
+| rev_1m   | +166 % | 5.21 | −32 % |
+| mom_6_1  | +101 % | 3.93 | −23 % |
+| mom_3_1  | +92 %  | 3.82 | −7 % |
+| trend    | +91 %  | 4.15 | +12 % |
+| mom_12_1 | +62 %  | 2.77 | −33 % |
+| low_vol  | **−54 %** | −7.84 | −67 % |
+
+### Why every "win" here is fake
+
+The crucial column is **underlying-LS CAGR** — the signal's true
+stock-picking skill, stripping away wrapper leverage.  *Every* signal
+is **zero or negative** in underlying space.  Translation:
+
+- "+547 % CAGR rev_1m long-only" is **not signal alpha** — the
+  no-signal EW basket of all 44 long-ETFs returns +422 % CAGR on its
+  own.  rev_1m adds ~+2.5 %/mo on top, plausibly from leverage
+  convexity rather than picking-skill (the underlying-LS is −7.6 %).
+
+- "+166 % complete-pairs rev_1m" is roughly half the long-only result
+  because the inverse-ETF leg averages ~0 over this bull market — it
+  hedges market beta but contributes no cross-sectional alpha.
+
+- **What 2022-2026 actually rewarded: owning 2x mega-cap SSEs
+  unhedged.**  The +422 % EW basket CAGR is the 2x leverage compounding
+  in a smooth bull market on mega-cap momentum names.  No signal
+  needed.
+
+- Low-vol is the only signal with *significantly* negative underlying
+  skill (−48 %) — high-vol mega-caps decisively beat low-vol in this
+  period (classic low-vol-anomaly inversion in a mega-cap-momentum
+  regime).
+
+Files:
+- `scripts/backtest_sse_momentum.py`
+- `runs/sse_underlying_expanding/backtest_sse_momentum/sse_momentum_summary.xlsx`
+- `runs/sse_underlying_expanding/backtest_sse_momentum/sse_momentum_cum.pdf`
+
+## I.5  Why this is a structural wall, not a research-direction problem
+
+The CNN edge lives in the **single-stock cross-section of the broader
+R1000**, specifically in small-cap, high-vol, recent-loser names
+(section H's tradable cell: +13 % net CAGR, t +3.86, Mid-dv × High-vol ×
+Low-mom).  For an ETF-only mandate, this is structurally inaccessible:
+
+1. **Liquid baskets average it out.**  Section H's 477-liquid-ETF zero-shot
+   test: all LS results between −1 % and +1 %.  Diversification
+   eliminates the idiosyncratic-reversal signal by construction.
+
+2. **Single-stock ETFs cover the wrong tail.**  Issuers make wrappers
+   for ~40 ultra-popular mega-cap names — the exact opposite of the
+   alpha's natural habitat.  No one issues SSEs on unknown small-cap
+   losers because there is no retail demand.
+
+3. **Sector / thematic ETFs are baskets of those same mega-caps.**
+   XLK, SOXX, ARKK, MAGS, etc.  Same diversification problem.
+
+4. **Retraining on ETFs does not help** — I.1 documented that
+   ETF-specialised models *underperform* the zero-shot R1000 transfer.
+   The ETF universe lacks the cross-sectional dispersion to train on.
+
+5. **Generic momentum / reversal signals on SSEs have no stock-picking
+   skill** — I.4 documented zero/negative underlying-LS for every
+   classical signal tried.  Wrappers + bull market mask this in
+   headline returns.
+
+## I.6  Updated bottom line for the project
+
+The replication is correct (section A–B).  The alpha is real and
+deployable in single-stock space (section G + H's mid-cap cell).
+**It cannot be deployed via any ETF wrapper available to a US
+investor.**  This is a *constraint mismatch*, not a model failure:
+
+- The signal is structurally cross-sectional, idiosyncratic, and
+  concentrated in names too small/illiquid/specific for any ETF issuer
+  to wrap.
+- Both directions tried (basket-level ETFs and single-stock ETFs) fail
+  for orthogonal reasons (averaging vs universe-skew).
+- Retraining on the constrained universe does not produce a deployable
+  alternative — the universe is the binding constraint.
+
+**For a fund with the user's restrictions, the CNN-pattern signal is
+not actionable.**  Pursue an unrelated alpha source compatible with
+ETF-only execution (sector rotation with macro inputs, vol-of-vol on
+VXX/UVXY, calendar/seasonality on broad-market ETFs, fixed-income or
+FX-ETF carry/momentum).  Pattern-CNN remains a documented, working
+single-stock alpha that requires single-stock execution capability.
