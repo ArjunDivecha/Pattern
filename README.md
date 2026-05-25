@@ -579,3 +579,167 @@ Outputs:
    expensive.**  This is the central tension of the paper's
    trash-tier alpha — small, illiquid, volatile names.  Any production
    deployment needs realistic execution cost modelling and low AUM.
+
+---
+
+# Addendum H — Zero-shot ETF test and the liquid-grid pivot (2026-05)
+
+After concluding that the trash-tier triple-filter is capacity-limited
+to ~$500k–$1M, the next two questions were:
+
+  (i) Does the CNN transfer zero-shot to a universe with naturally low
+      spreads and easy borrow — i.e. ETFs?
+ (ii) Inside R1000, is there a cell with *modest* gross return but
+      genuinely cheap execution that survives realistic costs?
+
+## H.1  Zero-shot test on liquid ETFs
+
+**Universe build.**  Pulled a 4,374-ETF Bloomberg screen
+(`/Users/arjundivecha/Downloads/ETF.xlsx`), converted `"SPY US"` → `"SPY"`
+for yfinance, dropped leveraged / inverse / 2x / 3x / YieldMax / covered-call
+products, then filtered on:
+
+```
+bid-ask spread ≤ 5 bps   AND
+30-day $-volume   ≥ $10M  AND
+30-day share-volume ≥ 100k
+```
+
+→ **477 liquid ETFs** (`AssetList_liquid_etfs.xlsx`).  Spread
+distribution: 223 @ 1-2 bps, 96 @ 2-3, 69 @ 3-4, 49 @ 4-5.
+
+**Data.**  100 % yfinance fetch success →
+`data/liquid_etf_ohlcv.{csv,parquet}` (1.6 M rows, 477 tickers,
+1993-01 → 2026-04).  History depth: 378 ETFs ≥ 5 yr, 300 ≥ 10 yr,
+209 ≥ 15 yr.
+
+**Image cache.**  Added a `--monthly` flag to
+`scripts/render_etf_cache.py` that keeps only the last trading day
+of each calendar month per ticker (≈ 20× smaller cache, monthly-cadence
+predictions).  Final cache:
+
+```
+cache/liquid_etf_I20_monthly/images.npy   215 MB, (58,767, 1, 64, 60) uint8
+cache/liquid_etf_I20_monthly/index.parquet 603 KB, 58,767 rows, 427 tickers,
+                                         361 monthly dates 1996-03 → 2026-03
+```
+
+**Predictions.**  Applied the 28-window R1000-trained ensemble zero-shot.
+Overall OOS AUC = **0.5078** (vs R1000 benchmark 0.5068) — there is
+a trace of signal, but it is not economically useful.
+
+**Backtests** (in `runs/liquid_etf_expanding/`):
+
+| Filter | CAGR | Sharpe | NW t |
+|---|---:|---:|---:|
+| 50/50 LS                  | −0.44 % | −0.08 | −0.39 |
+| Top/Bot 10 %              | +0.27 % | +0.02 | +0.13 |
+| Top/Bot 20 names          | +1.21 % | +0.13 | +0.66 |
+| triple (small & high-vol & loser) | **−1.42 %** | −0.18 | −0.95 |
+
+**Conclusion.**  The CNN alpha is a **single-stock idiosyncratic-reversal
+effect**.  ETFs are diversified baskets of dozens to hundreds of
+single names, so the very source of the signal is averaged away on the
+underlying basket.  Even the triple-filter, which on R1000 single names
+is the strongest cell of the entire study, goes *negative* once the
+universe becomes ETFs.  Cheap execution does not rescue a signal that
+isn't there.
+
+## H.2  R1000 liquid-grid search (the pivot that worked)
+
+Question (ii) — finding a tradable R1000 cell with modest return but
+cheap execution — was the productive turn.
+
+`scripts/backtest_liquid_grid.py` buckets every month-end by tertile on
+`dv_60d`, `vol_60d`, and `mom_12_1`, then builds 50/50 long-short books
+inside each cell.  Per cell it reports gross LS, NW t, one-sided
+monthly turnover, and a realistic cost drag using
+half-spread = {Low-dv: 25 bps, Mid-dv: 8 bps, High-dv: 2.5 bps}.
+
+### Marginal dv tertiles
+
+| Cell | months | gross LS | net LS | NW t | half-spread |
+|---|---:|---:|---:|---:|---:|
+| dv = Low (all)   | 282 |  9.63 % | 6.56 % | 5.71 | 25 bps |
+| dv = Mid (all)   | 282 |  3.52 % | 2.49 % | 3.18 |  8 bps |
+| dv = High (all)  | 282 |  1.49 % | 1.19 % | 1.17 | 2.5 bps |
+| All R1000        | 282 |  4.86 % | 3.92 % | 4.49 |  8 bps* |
+
+\* notional weighted-average tier.
+
+### Grid A — dv × vol (cells passing net > 0 AND t ≥ 2)
+
+| Cell | names | net LS | Sharpe | NW t |
+|---|---:|---:|---:|---:|
+| dv=Low  × vol=High | 214 | **16.48 %** | 1.21 | 5.90 |
+| dv=Mid  × vol=High | 150 |  7.34 %     | 0.74 | 3.59 |
+| dv=High × vol=High | 146 |  6.01 %     | 0.61 | 2.98 |
+
+### Grid B — dv × mom (cells passing net > 0 AND t ≥ 2)
+
+| Cell | names | net LS | Sharpe | NW t |
+|---|---:|---:|---:|---:|
+| dv=Low  × mom=Low | 211 | **16.07 %** | 1.34 | 6.50 |
+| dv=Mid  × mom=Low | 163 |  6.98 %     | 0.85 | 4.11 |
+| dv=High × mom=Low | 146 |  3.96 %     | 0.44 | 2.11 |
+| dv=High × mom=Mid | 181 |  2.24 %     | 0.46 | 2.24 |
+
+### Grid C — dv × vol × mom (27 cells, top by net LS)
+
+| Cell | names | gross LS | net LS | Sharpe | NW t | half-spread |
+|---|---:|---:|---:|---:|---:|---:|
+| Low × High × Low     | 124 | 26.97 % | **23.42 %** | 1.04 | 5.05 | 25 bps |
+| **Mid × High × Low** |  71 | 14.28 % | **13.01 %** | 0.79 | 3.86 |  8 bps |
+| Mid × High × High    |  51 | 10.34 % |  9.01 %     | 0.57 | 2.76 |  8 bps |
+| **High × High × Low**|  59 |  7.25 % |  6.85 %     | 0.42 | 2.02 | 2.5 bps |
+| Mid × Low  × Low     |  37 |  5.77 % |  4.34 %     | 0.46 | 2.22 |  8 bps |
+
+Of 27 cells, only those 5 pass the (net > 0, t ≥ 2) hurdle.  The
+structure is highly concentrated: **High-vol is the load-bearing
+filter**, **mom=Low (recent loser) stacks on top of it**, and the
+effect persists out of the cheap-to-trade zone for the first time.
+
+### What this changes
+
+- Takeaway #5 / #6 from section G need to be qualified.  Yes — the
+  strongest gross alpha is in the trash tier (Low-dv × High-vol ×
+  Low-mom, 23 % net, 124 names).  But there are now **two
+  cleaner-cost alternatives**:
+
+  1. **Mid-dv × High-vol × Low-mom**: ~71 names, ~$500M–$5B per
+     name, 8 bps half-spread, easy borrow.  **+13 % net CAGR,
+     Sharpe 0.79, t +3.86.**  This is the workhorse cell — modest
+     return for a single-name strategy but it actually clears
+     realistic costs.
+  2. **High-dv × High-vol × Low-mom**: ~59 mega-cap names
+     (TSLA / NVDA / COIN-type beaten-down volatile blue chips),
+     2.5 bps half-spread, trivial borrow.  **+6.9 % net,
+     Sharpe 0.42, t +2.02.**  Largest capacity of any cell.
+
+- A reasonable production stack is **Mid-cell + High-cell** ≈ 130
+  names per side, gross ~10 %, Sharpe ~0.7, deep capacity.
+
+### Dead zones (every Mid-vol cell, every High-mom cell ex one)
+
+All nine Mid-vol cells are flat or negative net.  All six dv ×
+mom=High cells are flat or negative net.  The CNN's edge is
+concentrated entirely in the high-vol / low-momentum tails — exactly
+the regime where mean-reversion dominates trend.
+
+### Files
+
+- `scripts/backtest_liquid_grid.py` — 27-cell grid driver.
+- `runs/expanding/20260419_174908_cdef6809/backtest_liquid_grid/liquid_grid_summary.xlsx`
+  — sheets `marginals`, `dv_x_vol`, `dv_x_mom`, `dv_x_vol_x_mom`, `tradable`.
+
+## H.3  Updated bottom line
+
+The signal documented in section G is real and the trash-tier
+result (28 % gross, $500k-$1M capacity) still stands.  What changed
+is that **section G's pessimistic conclusion — "costs eat all the
+alpha" — is universe-specific, not signal-specific**.  Climb one
+tertile up the dollar-volume ladder, keep the High-vol × Low-mom
+sub-filter, and you get a tradable ~13 % net book with eight-times
+the capacity.  The CNN signal degrades smoothly with size and
+liquidity rather than collapsing — the right deployment is the
+mid-cap high-vol loser cell, not the smallest-name trash tier.
