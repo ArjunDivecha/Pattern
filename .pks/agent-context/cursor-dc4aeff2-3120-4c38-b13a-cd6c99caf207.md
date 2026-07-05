@@ -6,8 +6,8 @@ repo_name: Pattern
 github_repo: ArjunDivecha/Pattern
 session_id: dc4aeff2-3120-4c38-b13a-cd6c99caf207
 source_file: dc4aeff2-3120-4c38-b13a-cd6c99caf207.jsonl
-exported_at: 2026-05-25T04:34:26.342815+00:00
-export_base_commit_sha: 510ba73b9da444d212dd9e141b2f2aa31c0454f6
+exported_at: 2026-07-05T09:16:27.681585+00:00
+export_base_commit_sha: 0ab4a3def9ebda8bdf8d1024360349dc650b69d9
 redacted: true
 ---
 
@@ -255,3 +255,35 @@ what other branches are in tbis repo
 *   `master` (local and remote `origin/master`)
 *   `feature/live-scorer-webapp` (local and remote `origin/feature/live-scorer-webapp`)
 *   `relative` (local only — not pushed to remote)
+
+
+**User:** <user_query>
+where are the results files
+</user_query>
+
+
+**Assistant:** Let me find where this repo stores its results and output artifacts.
+
+[REDACTED]
+
+
+**Assistant:** [REDACTED]
+
+
+**Assistant:** [REDACTED]
+
+
+**Assistant:** Results live under **`runs/`** — that's the main output tree. It's gitignored (too large to commit), so everything stays on disk locally.
+
+**Base path:** [/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/runs](file:///Users/arjundivecha/Dropbox/AAA%20Backup/A%20Working/Pattern/runs)
+
+## Main result locations
+
+| Path | What it contains |
+|------|------------------|
+| `runs/expanding/20260419_174908_cdef6809/` | **Primary US expanding-window run** — predictions, backtests, PDFs, xlsx |
+| `runs/rolling/20260420_003938_fb2563f5/` | Rolling-window pathway |
+| `runs/final/` | **Live deployment models** (full-history, no holdout) |
+| `runs/comparison/` | Expanding vs rolling comparison |
+| `runs/liquid_etf_expanding/` | Liquid ETF backtests |
+| `runs/etf_expanding/`, `etf_scratch_w11/`, `
