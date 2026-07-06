@@ -8,18 +8,18 @@ This page covers the financial strategy, key research findings, and deployment c
 
 **Portfolio construction:** At each 20-day rebalance date, stocks are scored by ensemble-averaged `P(up)`, ranked cross-sectionally into 10 deciles. D10 (highest P(up)) is the long book, D1 (lowest) is the short book. Long-short = D10 − D1, equal-weight within each decile.
 
-**Training protocol:** Expanding-window retraining anchored at 1996. 28 windows, each training a 5-seed ensemble. Window 0 trains on 1996–98, tests 1999. Window 27 trains on 1996–2025, tests 2026. All out-of-sample predictions are strictly forward-looking.
+**Training protocol:** Expanding-window retraining anchored at 1996. 27 windows, each training a 5-seed ensemble. Window 0 trains on 1996–98, tests 1999. Window 26 trains on 1996–2024, tests 2025. All out-of-sample predictions are strictly forward-looking.
 
 ---
 
-## Headline Results (Expanding Pathway, 1999–2026)
+## Headline Results (Expanding Pathway, 1999–2025)
 
 | Metric | Value |
 |---|---|
 | Observations | 9,249,453 (ticker × end_date) |
 | Unique tickers / dates | 3,011 / 5,759 |
 | Overall test AUC | 0.5068 |
-| Windows with positive LS | 25 / 28 |
+| Windows with positive LS | 25 / 27 |
 
 ### Long-Short Summary
 
@@ -166,7 +166,7 @@ Source: README.md Addendum I. Scripts: `scripts/backtest_sse.py`, `scripts/backt
 
 ## Summary of Key Takeaways
 
-1. **The paper replicates cleanly.** Full R1000 LS: +17.4%, Sharpe 1.22, NW t +7.99 over 1999–2026.
+1. **The paper replicates cleanly.** Full R1000 LS: +17.4%, Sharpe 1.22, NW t +7.99 over 1999–2025.
 2. **Alpha concentrates in small, high-vol, recent-loser names.** Triple-filter gross: +28.5%, Sharpe 1.07, ~124 names.
 3. **Alpha is high-turnover.** ~60% monthly rotation per side. It's an intra-month reversal exploit.
 4. **Simple regime overlays don't help.** 2018 is a squeeze event, not a regime feature.

@@ -7,13 +7,13 @@ All configs live in `configs/` and are loaded via `Config.from_yaml(path)` (Pyda
 | Config | Mode | Device | Purpose |
 |---|---|---|---|
 | `configs/debug.yaml` | debug | auto (MPS/CPU) | Smoke testing: 3yr train, 2yr test, single window, W&B enabled |
-| `configs/production.yaml` | debug | auto | Baseline full-period single-pass (not expanding/rolling) |
-| `configs/prod_expanding.yaml` | expanding | cuda | 28 expanding-window retrains anchored at 1996, cache at `/data/Pattern/cache/prod_I20` |
-| `configs/prod_rolling.yaml` | rolling | cuda | 28 rolling-window retrains (expand 3yr → 5yr cap, then trail), shared cache |
+| `configs/production.yaml` | expanding | auto | Full-period expanding-window with 8-year initial train (not the multi-GPU prod configs) |
+| `configs/prod_expanding.yaml` | expanding | cuda | 27 expanding-window retrains anchored at 1996, cache at `/data/Pattern/cache/prod_I20` |
+| `configs/prod_rolling.yaml` | rolling | cuda | 27 rolling-window retrains (expand 3yr → 5yr cap, then trail), shared cache |
 
 **Key config differences (expanding vs rolling):**
 
-- Expanding: training window grows from `train_years` (8) to include all history up to the retrain date.
+- Expanding: training window grows from `train_years` (3) to include all history up to the retrain date.
 - Rolling: training window expands from `train_years` (3) up to `max_train_years` (5), then keeps a trailing 5-year window.
 
 Both production configs share the same image cache at `/data/Pattern/cache/prod_I20` and the same CSV at `/data/Pattern/data/r1000_ohlcv_database.csv`.
@@ -31,10 +31,10 @@ Each run writes to `runs/<pathway>/<timestamp>_<config_hash>/`:
   pip_freeze.txt                  # Python environment snapshot
   window_00_predictions.parquet    # per-window predictions
   ...
-  window_27_predictions.parquet
+  window_26_predictions.parquet
   window_00_features.npz          # per-window logits + embeddings
   ...
-  window_27_features.npz
+  window_26_features.npz
   window_stats.csv               # per-window timing + GPU memory
   predictions.parquet            # concatenated final (9.25M rows for expanding)
   shard_gpu{0..7}.log            # multi-GPU driver logs
@@ -73,7 +73,7 @@ Each run writes to `runs/<pathway>/<timestamp>_<config_hash>/`:
 | Local development | M4 Max, 128 GB RAM, MPS | repo root |
 
 **Compute budget (expanding pathway, actual):**
-- 28 windows × 5 ensembles = 140 networks
+- 27 windows × 5 ensembles = 135 networks
 - Wall-clock: 9h 27min (8× A100 pipelined)
 - Sum of per-shard GPU hours: 64.74
 - Mean per-window wall: 138.7 min

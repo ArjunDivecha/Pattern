@@ -55,7 +55,7 @@ python scripts/run_multi_gpu.py --config configs/prod_expanding.yaml --prebuild-
 python scripts/run_multi_gpu.py --config configs/prod_expanding.yaml --n-gpus 8
 ```
 
-Uses `configs/prod_expanding.yaml`: 28 expanding windows anchored at 1996. Window 0 trains on 1996–98, tests 1999. Window 27 trains on 1996–2025, tests 2026. Each window trains a 5-seed ensemble (140 total networks). Cache is shared across all windows and GPUs (read-only after build).
+Uses `configs/prod_expanding.yaml`: 27 expanding windows anchored at 1996. Window 0 trains on 1996–98, tests 1999. Window 26 trains on 1996–2024, tests 2025. Each window trains a 5-seed ensemble (135 total networks). Cache is shared across all windows and GPUs (read-only after build).
 
 ### Production Rolling-Window (multi-GPU)
 
@@ -63,7 +63,7 @@ Uses `configs/prod_expanding.yaml`: 28 expanding windows anchored at 1996. Windo
 python scripts/run_multi_gpu.py --config configs/prod_rolling.yaml --n-gpus 8
 ```
 
-Uses `configs/prod_rolling.yaml`: window expands from 3 years up to 5 years, then trails at 5 years. Same shared cache as expanding. 28 windows.
+Uses `configs/prod_rolling.yaml`: window expands from 3 years up to 5 years, then trails at 5 years. Same shared cache as expanding. 27 windows.
 
 ### Full-History Live Model (`scripts/train_full_for_live.py`)
 
@@ -96,7 +96,7 @@ Polls `nvidia-smi` every 30 seconds; whenever a GPU has no compute apps attached
 python scripts/gpu_scheduler.py \
     --config configs/prod_rolling.yaml \
     --run-dir /data/Pattern/runs/rolling/<ts> \
-    --n-windows 28 --n-gpus 8
+    --n-windows 27 --n-gpus 8
 ```
 
 Per-window logs go to `shard_gpu{g}_w{w:02d}.log`. Exits when the queue is empty and all launched shards have finished.
@@ -140,7 +140,7 @@ See [Domain & Strategy](domain.md) for the research findings from these scripts.
 
 ### Batch Live Scoring (`scripts/score_live.py`)
 
-Scores the tail of trading days (no forward return available yet) using the most recent expanding-window checkpoint (w27, trained on 1996–2025).
+Scores the tail of trading days (no forward return available yet) using the most recent expanding-window checkpoint (w26, trained on 1996–2024).
 
 ```bash
 python scripts/score_live.py \
@@ -150,7 +150,7 @@ python scripts/score_live.py \
 
 ### Expanding-Window Scoring (`scripts/score_with_expanding.py`)
 
-Scores a data file using the full expanding-window ensemble (all 28 windows).
+Scores a data file using the full expanding-window ensemble (all 27 windows).
 
 ### Webapp (`webapp/`)
 

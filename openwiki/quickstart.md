@@ -4,7 +4,7 @@
 
 **Pattern** is a CNN-based stock price trend prediction pipeline that replicates and extends Jiang, Kelly & Xiu (2023), *"(Re-)Imag(in)ing Price Trends"* (JF 78(6)). It converts daily OHLCV data into 64×60 grayscale candlestick chart images and trains a 5-CNN ensemble to predict whether the next 20-day return will be positive. The ensemble-averaged `P(up)` score is then used to form decile-sorted long-short portfolios.
 
-The pipeline has been run at production scale on the Russell 1000 universe (~3,000 tickers, 1996–2026) using expanding-window retraining on 8× NVIDIA A100 GPUs. Headline result: long-short D10−D1 portfolio with +17.4% annualized return, Sharpe 1.22, Newey-West t-stat +7.99 over 28 years of out-of-sample data.
+The pipeline has been run at production scale on the Russell 1000 universe (~3,000 tickers, 1996–2025) using expanding-window retraining on 8× NVIDIA A100 GPUs. Headline result: long-short D10−D1 portfolio with +17.4% annualized return, Sharpe 1.22, Newey-West t-stat +7.99 over 27 years of out-of-sample data.
 
 Reference paper: `Pattern-2.pdf`. Full specification: `PRD.md`. Strategy summary: `strategy_memo.md`.
 
@@ -89,6 +89,6 @@ cd webapp && uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | **I20/R20** | 20-day chart images (I20) predicting 20-day forward return direction (R20) |
 | **Chart image** | 64×60 px grayscale, binary pixels {0,255}: 3 columns per day (open tick, H-L bar + MA + volume, close tick) |
 | **5-seed ensemble** | 5 CNNs with different seeds; outputs averaged for final `P(up)` |
-| **Expanding window** | Training set grows each year; 28 windows cover 1999–2026 out-of-sample |
+| **Expanding window** | Training set grows each year; 27 windows cover 1999–2025 out-of-sample |
 | **Decile portfolios** | Stocks ranked cross-sectionally by `P(up)` into 10 equal-size buckets; D10−D1 = long-short |
 | **Newey-West t-stat** | Corrects for 20-day overlap in daily forward-return observations (lag=19, Bartlett kernel) |

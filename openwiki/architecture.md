@@ -55,7 +55,7 @@ Three split modes, all with trading-day purge gaps to prevent label leakage acro
 | Mode | Function | Description |
 |---|---|---|
 | `debug` | `debug_split()` | First N years for train+val (time-based 70/30), next M years for test. Single window. |
-| `expanding` | `expanding_splits()` | Training window grows each retrain cycle. Returns a list of `{train, val, test}` dicts — one per retraining window (28 for the full R1000 run). |
+| `expanding` | `expanding_splits()` | Training window grows each retrain cycle. Returns a list of `{train, val, test}` dicts — one per retraining window (27 for the full R1000 run). |
 | `rolling` | `rolling_splits()` | Fixed-length or expand-then-roll training window. `max_train_years` caps the window; once reached, it trails. |
 
 **Purge mechanism:** `purge_days = window + horizon - 1` trading days are dropped on both sides of every train/val and val/test boundary so no image window in the earlier set can overlap the forecast horizon of any image window in the later set.
@@ -149,12 +149,12 @@ Parametric CNN builder supporting I5/I20/I60 via config:
 ### Deciles (`pattern/backtest/deciles.py`)
 
 - `build_portfolios(pred_df, n_deciles, score_col, return_col)` — Per formation date: rank stocks by `p_up_mean`, cut into N equal-size deciles (D1=lowest, D10=highest), compute equal-weighted mean forward return within each bucket. Days with fewer than `2 × n_deciles` stocks are skipped.
-- `long_short_returns(portfolios)` — D10 − D1 time series.
+- `long_short_series(portfolios, n_deciles)` — D_top − D_bottom time series.
 
 ### Metrics (`pattern/backtest/metrics.py`)
 
 - `newey_west_variance(x, lags)` — HAC (Bartlett-kernel) variance estimator for overlapping observations.
-- `compute_stats(returns, holding_period, newey_west_lags)` — Annualized mean, volatility, Sharpe, NW t-stat, max drawdown (on non-overlapping sub-sample).
+- `summarize_series(returns, holding_period_days, nw_lags)` — Annualized mean, volatility, Sharpe, NW t-stat, max drawdown (on non-overlapping sub-sample).
 - `compute_turnover(pred_df, n_deciles, score_col)` — Jegadeesh-Titman-style symmetric-difference turnover per formation day.
 
 ### Report (`pattern/backtest/report.py`)
