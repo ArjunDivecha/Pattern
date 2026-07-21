@@ -1,3 +1,9 @@
+---
+type: "Reference"
+title: "Pattern — OpenWiki Quickstart"
+description: "Entry point for the Pattern repository wiki. Covers what the project is, repository layout, prerequisites, quick-start commands, and links to all documentation sections."
+---
+
 # Pattern — OpenWiki Quickstart
 
 ## What This Project Is

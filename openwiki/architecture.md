@@ -1,3 +1,9 @@
+---
+type: "Reference"
+title: "Architecture"
+description: "Core pipeline design of the Pattern CNN-based stock trend prediction system: Pydantic config, data loading, image rendering, CNN model, training loop, and backtest engine."
+---
+
 # Architecture
 
 The Pattern pipeline converts daily OHLCV stock data into chart images, trains CNN ensembles to predict forward return direction, and constructs decile-sorted long-short portfolios. The entire system is driven by a Pydantic config loaded from YAML.

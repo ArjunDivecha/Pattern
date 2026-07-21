@@ -1,3 +1,9 @@
+---
+type: "Reference"
+title: "Domain & Strategy"
+description: "Financial strategy and research findings for the Pattern CNN signal: headline results, cross-sectional slicing, trash-tier intersection, regime overlays, trading-cost analysis, liquid-grid pivot, and ETF deployment failures."
+---
+
 # Domain & Strategy
 
 This page covers the financial strategy, key research findings, and deployment conclusions. The research is documented in detail in the README.md addenda (sections A–I) and summarized here.

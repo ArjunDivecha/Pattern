@@ -1,3 +1,9 @@
+---
+type: "Reference"
+title: "Testing"
+description: "Test coverage for the Pattern pipeline: pixel-exact renderer tests, labeling tests, split tests, what is not tested, and change-oriented guidance for future modifications."
+---
+
 # Testing
 
 ## Test Suite

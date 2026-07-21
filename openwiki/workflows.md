@@ -1,3 +1,9 @@
+---
+type: "Reference"
+title: "Workflows"
+description: "End-to-end workflows for the Pattern pipeline: Bloomberg data building, debug and production training, multi-GPU orchestration, backtesting, live scoring, and pathway merging."
+---
+
 # Workflows
 
 This page covers the end-to-end workflows: data building, training (debug and production), multi-GPU orchestration, backtesting, live scoring, and pathway merging.

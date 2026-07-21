@@ -1,3 +1,9 @@
+---
+type: "Reference"
+title: "Operations"
+description: "Operational reference for the Pattern pipeline: YAML configs, run directory layout, image cache, hardware setup, webapp deployment, data files, and reproducibility."
+---
+
 # Operations
 
 ## Configs
