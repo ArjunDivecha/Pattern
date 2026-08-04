@@ -15,6 +15,8 @@ CSV (OHLCV + AdjClose)
   → load_data()           # pattern/data/loader.py — tidy DataFrame + Return column
   → compute_labels()      # pattern/data/loader.py — y = 1 if 20-day fwd return > 0
   → get_splits()           # pattern/data/splits.py — debug / expanding / rolling
+  #
+  # NOTE: pattern/data/{loader,splits}.py are NOT committed to this repo (see Data Layer).
   → build_cache()          # pattern/imaging/cache.py — memmap images.npy + index.parquet
   → train_model() × 5      # pattern/train/loop.py — 5-seed ensemble with early stopping
   → predict()              # pattern/train/loop.py — ensemble P(up), logits, embeddings
@@ -46,6 +48,8 @@ All behavior is driven by a Pydantic `Config` model loaded from YAML via `Config
 ---
 
 ## Data Layer
+
+> **Source gap:** The `pattern/data/` package (`loader.py`, `splits.py`) is imported across the codebase but is **not present in the repository** (not tracked by git, not gitignored, not present anywhere on disk). `import pattern.data.loader` raises `ModuleNotFoundError`. The functions below are the documented intended API inferred from the import sites (`pattern/cli.py`, `pattern/imaging/cache.py`, `pattern/train/dataset.py`, `webapp/scorer.py`, scripts, and tests) and their docstrings; they are not verifiable against source because the files are missing. Until `pattern/data/` is added, the CLI pipeline, tests, and webapp cannot run. See [Testing](testing.md) and [Operations](operations.md#webapp-deployment) for the runtime consequences.
 
 ### Loader (`pattern/data/loader.py`)
 

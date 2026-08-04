@@ -46,6 +46,8 @@ pip install -r requirements.txt
 
 ## Quick Start
 
+> **Runtime caveat:** The training commands below (`python -m pattern.cli ...`, `scripts/run_multi_gpu.py`) import `pattern.data.{loader,splits}`, which are **not committed to this repository**. They will fail with `ModuleNotFoundError` until `pattern/data/` is restored. The commands document the intended invocation. See [Architecture — Data Layer](architecture.md#loader-patterndataloaderpy).
+
 ### Debug run (local, MPS/CPU)
 ```bash
 python -m pattern.cli train --config configs/debug.yaml
@@ -71,10 +73,14 @@ python -m pattern.cli backtest --config configs/prod_expanding.yaml \
 pytest tests/ -v
 ```
 
+> `tests/test_labeling.py` and `tests/test_splits.py` import `pattern.data.{loader,splits}`, which are not committed to this repo, so these tests cannot collect until `pattern/data/` is restored. See [Testing](testing.md).
+
 ### Launch the live scoring webapp
 ```bash
 cd webapp && uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+> `webapp/scorer.py` imports `pattern.data.loader`, which is not committed to this repo. The webapp will not start until `pattern/data/` is restored.
 
 ---
 
@@ -98,3 +104,9 @@ cd webapp && uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | **Expanding window** | Training set grows each year; 27 windows cover 1999–2025 out-of-sample |
 | **Decile portfolios** | Stocks ranked cross-sectionally by `P(up)` into 10 equal-size buckets; D10−D1 = long-short |
 | **Newey-West t-stat** | Corrects for 20-day overlap in daily forward-return observations (lag=19, Bartlett kernel) |
+
+---
+
+## Backlog
+
+- **`pattern/data/` package (`loader.py`, `splits.py`) is missing from the repository.** Imported by `pattern/cli.py`, `pattern/imaging/cache.py`, `pattern/train/dataset.py`, `webapp/scorer.py`, several scripts, and `tests/test_{labeling,splits}.py`, but not tracked by git and absent on disk. The CLI pipeline, tests, and webapp cannot run until it is restored. The wiki documents the intended API from import sites; verify against source once the files are added. Reason deferred: source files are not present, so behavior cannot be verified.
