@@ -1185,3 +1185,153 @@ boundary where churn is highest.
 - `runs/expanding/.../backtest_trash_tier_p5/` — trash tier at a $5 floor
 - `runs/expanding/.../backtest_liquid_grid_p5/` — 27-cell grid at a $5 floor
 - `runs/expanding/.../backtest_liquid_grid_p5_since2020/` — same, since 2020
+
+---
+
+# Addendum K — The return convention, and the Tracker paper book (2026-08)
+
+**This addendum supersedes the CAGR figures in every prior section, including
+addendum J.**  Addendum J corrected a contamination problem; this corrects an
+*arithmetic* one, and it is the larger of the two.  The signal remains real.
+
+## K.1  What `forward_return` actually is
+
+Verified empirically against the price panel, not assumed:
+
+```
+median | log(P_t+20 / P_t) − forward_return |  =  0.00000   (h=20)
+median | (P_t+20 / P_t − 1) − forward_return | =  0.0024    (h=20)
+```
+
+`forward_return` is a **20-trading-day LOG return**.  Every LS number this
+project has published is therefore a difference of **mean log returns** across
+names, compounded.
+
+## K.2  Why that is not a portfolio return
+
+An equal-weighted portfolio earns the mean of **simple** returns, not the mean
+of log returns.  By Jensen, `mean(log) < log(1 + mean(simple))`, with the gap
+approximately `σ²/2` where σ is the *cross-sectional* dispersion of returns
+within the leg.
+
+For a long/short spread the two legs' penalties do **not** cancel — the short
+leg is subtracted, so **its dispersion penalty is added to the reported
+spread**.  The trash tier's bottom leg has a cross-sectional SD of 0.178 per
+20-day period, i.e. a σ²/2 term of ~1.58 %/month, or ~19 %/yr of phantom
+return before the long leg's own (smaller) offset.
+
+The effect is largest exactly where dispersion is largest — the trash tier.
+
+## K.3  Measured
+
+Trash tier (Low-dv × High-vol × Low-mom), $5 floor, 282 months:
+
+| Convention | Mean/month | CAGR |
+|---|---:|---:|
+| Mean log returns (as published) | +0.892 % | **+11.29 %** |
+| Simple returns (a portfolio) | +0.425 % | **+4.15 %** |
+| **Difference** | | **+7.14 pp** |
+
+Full R1000 universe, no price floor:
+
+| Book | Log CAGR | Simple CAGR |
+|---|---:|---:|
+| 50/50 top-vs-bottom half | +5.10 % | +4.12 % |
+| Decile D10−D1 | +17.36 % | **not computable** |
+
+Two things to note in that second table:
+
+1. **The gap shrinks to ~1 pp on the broad universe** (+5.10 % → +4.12 %),
+   because cross-sectional dispersion is far lower there.  The convention
+   inflates concentrated, high-dispersion cells and barely touches diversified
+   ones.
+2. **The decile book is not computable at all under simple returns.**  Some
+   months go below −100 %: shorting a name that 10×'s loses 900 %.  The log
+   convention bounded that tail and hid it.  The $5 price floor is what makes
+   the tracked series well-defined.
+
+## K.4  What this does and does not change
+
+**Does not change:** the CNN has genuine cross-sectional predictive power.  The
+decile monotonicity, the AUC, the sign and significance of the spread all
+stand.  This is a *reporting* correction, not a refutation.
+
+**Does change:** every headline CAGR.  The deployable trash-tier number is
+~**+4 %/yr gross on portfolio arithmetic**, not +28.5 % (original), and not
++12.8 % (addendum J).  Layer the ~25 bp half-spread cost drag on top and the
+trash tier is, on these numbers, **not obviously a viable book at all**.
+
+Stacking both corrections, in order:
+
+| Trash tier, full sample | CAGR |
+|---|---:|
+| As originally published | +28.5 % |
+| After the $5 price floor (addendum J) | +12.8 % |
+| After portfolio arithmetic (this addendum) | **+4.2 %** |
+| Less ~25 bp half-spread turnover drag | **≈ 0 %** |
+
+That last line is the honest bottom line for the trash tier as a standalone
+book, and it is a materially different conclusion from where this project
+started.
+
+## K.5  The Tracker paper book
+
+`scripts/mark_book.py` publishes two sleeves using real portfolio arithmetic —
+actual prices, held shares, simple returns, marked daily:
+
+| Sleeve | Cell | Full-sample CAGR | Sharpe | Since-2020 CAGR |
+|---|---|---:|---:|---:|
+| `pattern-trash` | Low-dv × High-vol × Low-mom | +4.24 % | 0.31 | +4.40 % |
+| `pattern-megacap` | High-dv × High-vol | +2.42 % | 0.27 | — |
+
+That the marker independently reproduces the +4.15 % analytic figure (+4.24 %
+with the daily-marking calendar) is the cross-check that the *implementation*
+is right and the *convention* was the problem.
+
+Both are **paper** — the book needs single-stock shorting.  The series is
+`backtest` before `paper_start` and `paper` after, carried in a `track` column,
+because the backtest leg has now been revised twice and must not quietly become
+the track record.
+
+Benchmark is **cash**, not the cell's equal-weight return: these are
+dollar-neutral books, so excess against a long-only cell is a beta statement,
+not alpha.  `ew_cell` is carried in the file as context only.
+
+### Daily job
+
+```bash
+bash scripts/run_daily.sh      # splice -> score -> mark -> publish (~10 min)
+```
+
+1. `splice_daily_update.py --csv` — extend the Bloomberg panel with yfinance
+2. `score_live.py` — w27 ensemble → today's `p_up` (tradeable names only)
+3. `mark_book.py` — build/mark both sleeves, publish `data/tracker/<sleeve>/`
+
+Must finish before Tracker's 13:45 PT consolidation.
+
+**Rebalance guard.** `score_live.py` emits the current day as the canonical
+month-end of the running month.  Left unhandled, `mark_book.py` would treat
+every run day as a rebalance — daily turnover on a monthly strategy.  It
+therefore drops prediction dates falling in the latest incomplete calendar
+month, so the book set at the last completed month-end is held through the
+current one.
+
+### Registered in Tracker
+
+`pattern-trash` and `pattern-megacap`, both `mode: paper`, `cadence: daily`,
+`track: true`, read by `collect_pattern_sleeve` in Tracker's `adapters.py`.
+Perf packs build via `build_perf_report.py --strategy pattern-trash`.
+
+Not yet wired: a holdings page, which needs a loader returning
+`(list[HoldingRow], BookCharacteristics)`.  The book itself IS published to
+`data/tracker/<sleeve>/holdings_latest.csv` and the hub row carries the
+position count.
+
+## K.6  Artefacts
+
+- `scripts/mark_book.py` — book construction and daily marking
+- `scripts/run_daily.sh` — the daily job
+- `cache/r1000_I20_monthly/` — 483,339 images, 2,846 tickers (pixel-stat reference)
+- `runs/live/live_predictions.parquet` — latest `p_up`
+- `data/tracker/{pattern-trash,pattern-megacap}/` — what Tracker reads
+- `logs/daily/YYYY-MM-DD.log`

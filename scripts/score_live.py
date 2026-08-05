@@ -92,6 +92,12 @@ def main() -> None:
     ap.add_argument("--src-run", type=Path, default=DEFAULT_SRC_RUN)
     ap.add_argument("--cache-dir", type=Path, default=ROOT / "cache" / "etf_I20")
     ap.add_argument("--tickers-xlsx", type=Path, default=ROOT / "AssetList.xlsx")
+    ap.add_argument("--tickers-csv", type=Path, default=None,
+                    help="alternative to --tickers-xlsx: a CSV with a 'Ticker' "
+                         "column.  If it also has a boolean 'tradeable' column "
+                         "(as data/r1000_tradeable_universe.csv does) only "
+                         "tradeable names are scored -- stale prices would "
+                         "otherwise poison dv_60d/vol_60d/mom_12_1.")
     ap.add_argument("--out-parquet", type=Path,
                     default=ROOT / "runs" / "etf_expanding" / "live_predictions.parquet")
     ap.add_argument("--tail-days", type=int, default=30,
@@ -130,8 +136,17 @@ def main() -> None:
 
     # ── load OHLCV + render recent unlabeled tail ──────────────────────────
     df = load_data(args.data_csv, min_history_days=cfg.data.min_history_days)
-    tickers_xlsx = pd.read_excel(args.tickers_xlsx)["Ticker"].astype(str).str.strip().tolist()
-    df = df[df["Ticker"].isin(tickers_xlsx)].copy()
+    if args.tickers_csv is not None:
+        tsel = pd.read_csv(args.tickers_csv)
+        if "tradeable" in tsel.columns:
+            before = len(tsel)
+            tsel = tsel[tsel["tradeable"].astype(bool)]
+            log.info(f"Tradeable filter: {before} -> {len(tsel)} tickers "
+                     f"({before - len(tsel)} stale/excluded)")
+        keep = tsel["Ticker"].astype(str).str.strip().tolist()
+    else:
+        keep = pd.read_excel(args.tickers_xlsx)["Ticker"].astype(str).str.strip().tolist()
+    df = df[df["Ticker"].isin(keep)].copy()
     log.info(f"Loaded {len(df):,} rows across {df['Ticker'].nunique()} tickers  "
              f"{df['Date'].min().date()} → {df['Date'].max().date()}")
 
