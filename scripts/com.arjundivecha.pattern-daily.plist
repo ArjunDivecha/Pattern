@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Pattern daily job — install:
+    cp "scripts/com.arjundivecha.pattern-daily.plist" ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.arjundivecha.pattern-daily.plist
+
+  Uninstall:
+    launchctl unload ~/Library/LaunchAgents/com.arjundivecha.pattern-daily.plist
+
+  Runs weekdays 13:20 PT — after the 13:00 PT US close so yfinance carries
+  same-day closes, and ~25 minutes before Tracker's 13:45 PT consolidation
+  (the job takes 8-12 minutes). Registered with the NightWatch Overseer as
+  `pattern-daily`, so a missed or broken run alerts instead of going silent.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.arjundivecha.pattern-daily</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/scripts/run_daily.sh</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict>
+      <key>Weekday</key><integer>1</integer>
+      <key>Hour</key><integer>13</integer>
+      <key>Minute</key><integer>20</integer>
+    </dict>
+    <dict>
+      <key>Weekday</key><integer>2</integer>
+      <key>Hour</key><integer>13</integer>
+      <key>Minute</key><integer>20</integer>
+    </dict>
+    <dict>
+      <key>Weekday</key><integer>3</integer>
+      <key>Hour</key><integer>13</integer>
+      <key>Minute</key><integer>20</integer>
+    </dict>
+    <dict>
+      <key>Weekday</key><integer>4</integer>
+      <key>Hour</key><integer>13</integer>
+      <key>Minute</key><integer>20</integer>
+    </dict>
+    <dict>
+      <key>Weekday</key><integer>5</integer>
+      <key>Hour</key><integer>13</integer>
+      <key>Minute</key><integer>20</integer>
+    </dict>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern</string>
+  <key>StandardOutPath</key>
+  <string>/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/logs/daily/launchd_stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/logs/daily/launchd_stderr.log</string>
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>
