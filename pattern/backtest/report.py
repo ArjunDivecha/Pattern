@@ -2,23 +2,87 @@
 =============================================================================
 SCRIPT NAME: report.py
 =============================================================================
-INPUT:
-- run_dir containing predictions.parquet or predictions_ensemble.parquet
-- BacktestConfig (n_deciles, holding_period_days, newey_west_lags)
-
-OUTPUT:
-- <run_dir>/backtest_portfolios.parquet   — per-day decile returns
-- <run_dir>/backtest_ls.parquet           — long-short series (D_top - D_bottom)
-- <run_dir>/backtest_decile_stats.xlsx    — per-decile summary
-- <run_dir>/backtest_cum_return.pdf       — cumulative LS log-return plot
-- <run_dir>/backtest_decile_bar.pdf       — annualized mean return by decile
-- <run_dir>/report.md                     — human-readable summary
 
 DESCRIPTION:
-Run a backtest from saved ensemble predictions. Equal-weighted deciles,
-long-short is D_top (highest P(up)) minus D_bottom (lowest P(up)), with
-overlapping 20-day holdings — each formation day contributes one log-return
-observation per decile. Uses Newey-West (Bartlett) SEs with lags ≥ h-1.
+    Runs a backtest from saved ensemble predictions and writes summary
+    artifacts into the specified run directory.  Predictions are loaded
+    from either predictions_ensemble.parquet or predictions.parquet (the
+    latter is a fallback).  Each formation day's stocks are sorted by
+    predicted probability of upward return (p_up_mean) and split into
+    equal-weighted deciles.  A long-short portfolio goes long the
+    highest-decile stocks and short the lowest-decile stocks, held for a
+    configurable overlapping holding period (default 20 business days).
+    For each portfolio, the script computes:
+      - Log returns per formation day
+      - Annualized mean, volatility, Sharpe ratio
+      - Newey-West HAC t-statistic (with lags >= h-1)
+      - Maximum drawdown (on the non-overlapping sub-sample)
+      - Decile-membership turnover
+    Outputs include Parquet files for machine consumption, an Excel
+    spreadsheet with per-decile and summary statistics, two PDF plots,
+    and a human-readable Markdown report.
+
+INPUT FILES:
+    <run_dir>/predictions_ensemble.parquet
+        Ensemble-averaged predictions with columns: ticker, end_date,
+        p_up_mean, forward_return, and optionally MarketCap.  Generated
+        by a prior ensemble/aggregation step.  This is the primary input;
+        if absent the script falls back to predictions.parquet.
+    <run_dir>/predictions.parquet
+        Raw (single-model) predictions, same schema.  Used only when the
+        ensemble variant is missing.
+
+OUTPUT FILES:
+    <run_dir>/backtest_portfolios.parquet
+        Per-day decile log returns with columns: end_date, decile (int),
+        ret (mean log return across stocks in the decile).
+    <run_dir>/backtest_ls.parquet
+        Long-short time series with columns: end_date, ls_ret, long_ret,
+        short_ret.  One row per formation day.
+    <run_dir>/backtest_decile_stats.xlsx
+        Excel spreadsheet with two sheets:
+          - "per_decile":  annualized mean, vol, Sharpe, NW t-stat,
+             hit rate, and observation count per decile.
+          - "summary":     aggregate metrics for the long portfolio,
+             short portfolio, and long-short spread (same statistics
+             plus turnover).
+    <run_dir>/backtest_cum_return.pdf
+        Line plot of cumulative log returns for the long, short, and
+        long-short portfolios over the test window.
+    <run_dir>/backtest_decile_bar.pdf
+        Bar chart of annualized mean log return per decile (darker bars
+        for D1 and D{n_deciles}).
+    <run_dir>/report.md
+        Human-readable Markdown report with methodology notes, summary
+        statistics table, per-decile table, and plot references.
+
+VERSION: 1.0
+LAST UPDATED: 2026-06-05
+AUTHOR: Arjun Divecha
+
+DEPENDENCIES:
+    - Python >= 3.10
+    - pandas
+    - numpy
+    - matplotlib
+    - pattern (local library: pattern.config, pattern.backtest.deciles,
+      pattern.backtest.metrics)
+
+USAGE:
+    This module is not meant to be run as a standalone script.  Import
+    it and call `run_backtest(run_dir, cfg)` where `run_dir` is a Path to
+    the directory containing predictions and `cfg` is a BacktestConfig.
+
+NOTES:
+    - All file paths are relative to the caller-provided <run_dir> Path;
+      no hardcoded absolute paths are used in this module.
+    - Returns are log returns, not simple returns.
+    - Maximum drawdown is computed on a non-overlapping sub-sample (every
+      h-th formation day) to produce a valid strategy wealth path.
+    - Value-weighted backtesting requires a MarketCap column in the
+      predictions.  Equal-weight is always available.
+    - Newey-West lags default to max(cfg.newey_west_lags, h-1).
+    - Plots use matplotlib with the "Agg" backend (no display).
 =============================================================================
 """
 from __future__ import annotations

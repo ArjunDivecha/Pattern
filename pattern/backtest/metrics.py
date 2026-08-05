@@ -2,33 +2,50 @@
 =============================================================================
 SCRIPT NAME: metrics.py
 =============================================================================
-INPUT:
-- pd.Series of per-formation-day log returns (long-short or single decile)
-
-OUTPUT:
-- Dict of scalar stats  +  DataFrame of per-decile stats
 
 DESCRIPTION:
-Return-series statistics for PRD §8 backtest.
+    Computes return-series statistics for PRD Section 8 backtest analysis.
+    This module provides functions to produce scalar portfolio metrics
+    (mean annualized return, volatility, Sharpe ratio, Newey-West t-stat,
+    maximum drawdown) from a series of overlapping log returns sampled once
+    per formation day, and to compute decile-membership turnover rates.
+    All data flows through in-memory pandas Series/DataFrame arguments and
+    dict/DataFrame return values -- no files are read or written.
 
-Inputs are assumed to be log returns over the label horizon (20 business days),
-sampled ONCE PER FORMATION DAY (overlapping observations). That means:
+    The Newey-West HAC (Bartlett-kernel) variance estimator corrects for
+    autocorrelation introduced by overlapping 20-business-day holding
+    periods. The non-overlapping max drawdown sub-samples every h-th
+    observation to produce a valid wealth path (not inflated by overlap).
+    Turnover uses Jegadeesh-Titman-style symmetric-difference fractions
+    per formation day, aggregated to per-day and per-month measures.
 
-- N observations ≈ business days in test set
-- Each observation is a 20-day log return → annualization factor = 252/h
-- Overlap → Newey-West with lag ≥ h - 1 to get an honest t-statistic
+INPUT FILES:
+    (none -- this script operates entirely on in-memory data structures)
 
-For presentation we report:
-  - mean_ann       : 252/h × mean of log returns  (continuously compounded)
-  - vol_ann        : sqrt(252/h) × std of log returns
-  - sharpe_ann     : mean_ann / vol_ann  (assumes rf ≈ 0, same as paper)
-  - nw_tstat       : mean / NW-SE, where NW-SE uses HAC Bartlett kernel
-  - cum_log_return : sum of daily-formation log returns  (cumulative P&L if
-                     you held ONE 20-day portfolio at a time — not the same
-                     as the overlapping strategy's wealth path; used only
-                     for plotting shape)
-=============================================================================
-"""
+OUTPUT FILES:
+    (none -- the caller receives return values in memory)
+
+VERSION: 1.0
+LAST UPDATED: 2026-06-05
+AUTHOR: Arjun Divecha
+
+DEPENDENCIES:
+    - numpy
+    - pandas
+    - pattern.backtest.deciles (for decile assignment in compute_turnover)
+
+USAGE:
+    python metrics.py          # (this file is intended for import, not direct execution)
+
+NOTES:
+    - Log returns are expected to span a 20-business-day label horizon,
+      sampled once per formation day, creating overlapping observations.
+    - Annualization applies a factor of 252/h for mean and sqrt(252/h) for
+      volatility, where h is the holding period in business days.
+    - The default Newey-West lag is max(4, h - 1).
+    - Turnover requires a pred_df with columns: end_date, ticker, score_col.
+    - Days with fewer than 2 * n_deciles stocks are dropped from turnover.
+============================================================================="""
 from __future__ import annotations
 
 import logging

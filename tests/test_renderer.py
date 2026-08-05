@@ -1,8 +1,42 @@
 """
-Pixel-exact tests for renderer.py (PRD §12, success criterion 1).
+=============================================================================
+SCRIPT NAME: test_renderer.py
+=============================================================================
 
-Hand-computes expected pixel positions for three synthetic samples and
-asserts that render_window produces exactly those pixels.
+DESCRIPTION:
+    Pixel-exact unit tests for the chart renderer (render_window and
+    _bresenham functions from pattern.imaging.renderer).  Generates synthetic
+    OHLCV and TRI arrays in memory and verifies that pixel positions in the
+    rendered image match hand-computed expectations.  Covers flat-price
+    degenerate cases, known high/low bar positions, open/close tick columns,
+    volume bar heights, NaN handling (missing high/low skips a day), gap-row
+    blackout, Bresenham line-drawing correctness, and insufficient-data
+    edge cases.
+
+INPUT FILES:
+    (none — this script generates its own synthetic data in memory)
+
+OUTPUT FILES:
+    (none — this script only prints assertion results to stdout)
+
+VERSION: 1.0
+LAST UPDATED: 2026-06-05
+AUTHOR: Arjun Divecha
+
+DEPENDENCIES:
+    - numpy
+    - pytest
+    - pattern.imaging.renderer (internal)
+
+USAGE:
+    python -m pytest tests/test_renderer.py
+
+NOTES:
+    - All images are constructed and verified entirely in memory; no files
+      are read or written.
+    - Pixel coordinates are recomputed from first principles in each test to
+      catch regression in the renderer's geometry logic.
+=============================================================================
 """
 
 import numpy as np

@@ -3,51 +3,81 @@
 SCRIPT NAME: build_nky_database.py
 =============================================================================
 
+DESCRIPTION:
+    NKY 225 analogue of build_r1000_database.py.  Builds a point-in-time
+    historical database of every stock that was ever a Nikkei 225 member from
+    1996 to present, including delisted names.
+
+    Phase 1 — Constituents:
+      For each year-end 1996 to today, calls Bloomberg INDX_MWEIGHT_HIST on
+      "NKY Index" with END_DATE_OVERRIDE to retrieve point-in-time index
+      members.  Japanese exchange codes (e.g. "7203 JT") are converted to
+      composite Japan equity tickers ("7203 JP Equity").  Per-year lists are
+      saved as JSON for crash recovery and resume support.
+
+    Phase 2 — Consolidate:
+      Deduplicates tickers across all years, fetches metadata (name, sector,
+      exchange, SEDOL) for each unique ticker via Bloomberg ref_batch, and
+      writes the consolidated master sheet to Excel.
+
+    Phase 3 — OHLCV:
+      Pulls daily open/high/low/close/volume and total-return index via
+      Bloomberg hist_batch (25 tickers per request).  Each batch is staged
+      immediately to a separate Parquet file for resume safety.  The final
+      step concatenates all batches into a single master Parquet and CSV.
+
+    Early years (pre-2005) that Bloomberg returns empty for are backfilled
+    with the earliest non-empty year's member list, using Nikkei 225's
+    characteristically low annual turnover (~5%) as justification.
+
 INPUT FILES:
-- None (pulls directly from Bloomberg)
+    /Users/arjundivecha/Dropbox/AAA%20Backup/A%20Working/Pattern/data/nky_constituents/year_YYYY.json
+        Per-year NKY member ticker lists. Read on startup for resume
+        support — cached years are skipped in Bloomberg fetch.
+    /Users/arjundivecha/Dropbox/AAA%20Backup/A%20Working/Pattern/data/nky_ohlcv_batches/batch_NNNN.parquet
+        Per-batch OHLCV staging files. Read during the final combine phase
+        to assemble the master database; also checked at the start of each
+        batch to skip already-completed work.
 
 OUTPUT FILES:
-- data/nky_constituents/year_YYYY.json      Per-year NKY member ticker lists
-- data/nky_constituents/master_tickers.xlsx Consolidated unique ticker list + metadata
-- data/nky_ohlcv_batches/batch_NNN.parquet  Per-batch OHLCV staging files (resume-safe)
-- data/nky_ohlcv_database.parquet           Final combined database (Parquet, snappy)
-- data/nky_ohlcv_database.csv               Final combined database (CSV)
-- logs/nky_build_YYYY_MM_DD_HHMMSS.log      Full processing log
+    /Users/arjundivecha/Dropbox/AAA%20Backup/A%20Working/Pattern/data/nky_constituents/year_YYYY.json
+        Per-year NKY member ticker lists (one file per year, JSON array of
+        ticker strings).
+    /Users/arjundivecha/Dropbox/AAA%20Backup/A%20Working/Pattern/data/nky_constituents/master_tickers.xlsx
+        Consolidated unique ticker list with metadata columns: Ticker, Name,
+        Sector, Industry, Exchange, SEDOL, SecurityType, FirstYear, LastYear,
+        YearsInIndex.
+    /Users/arjundivecha/Dropbox/AAA%20Backup/A%20Working/Pattern/data/nky_ohlcv_batches/batch_NNNN.parquet
+        Per-batch OHLCV staging files (snappy-compressed Parquet). Written
+        immediately after each batch fetch for crash recovery.
+    /Users/arjundivecha/Dropbox/AAA%20Backup/A%20Working/Pattern/data/nky_ohlcv_database.parquet
+        Final combined OHLCV database (snappy-compressed Parquet).
+    /Users/arjundivecha/Dropbox/AAA%20Backup/A%20Working/Pattern/data/nky_ohlcv_database.csv
+        Final combined OHLCV database (CSV).
+    /Users/arjundivecha/Dropbox/AAA%20Backup/A%20Working/Pattern/logs/nky_build_YYYY_MM_DD_HHMMSS.log
+        Full processing log with timestamps.
 
 VERSION: 1.0
-LAST UPDATED: 2026-04-20
+LAST UPDATED: 2026-06-05
 AUTHOR: Arjun Divecha
 
-DESCRIPTION:
-NKY 225 analogue of build_r1000_database.py.  Builds a point-in-time
-historical database of every stock that was ever a Nikkei 225 member from
-1996 to present, including delisted names.
-
-PHASE 1 — Constituents:
-  For each year-end 1996..today, call INDX_MWEIGHT_HIST on "NKY Index" with
-  END_DATE_OVERRIDE to get point-in-time members.  Convert Japanese index
-  member codes (e.g. "7203 JT") to composite Japan equity ticker
-  ("7203 JP Equity").  Saved per-year as JSON for crash recovery.
-
-PHASE 2 — Consolidate:
-  Deduplicate across all years; fetch name/sector/exchange/SEDOL metadata
-  for every unique ticker; save master_tickers.xlsx.
-
-PHASE 3 — OHLCV:
-  Daily O/H/L/C/V + TotalReturnIndex from 19960101 → today via hist_batch
-  (50 tickers per request).  Each batch is staged to parquet immediately.
-  Final step combines into master CSV + Parquet.
+DEPENDENCIES:
+    - pandas
+    - blpapi (via OpusBloomberg)
+    - openpyxl (Excel writer backend)
 
 USAGE:
-  conda run -p "/Users/arjundivecha/Dropbox/AAA Backup/A Working/OpusBloomberg/.venv" \
-      python src/build_nky_database.py
+    conda run -p "/Users/arjundivecha/Dropbox/AAA Backup/A Working/OpusBloomberg/.venv" \
+        python src/build_nky_database.py
 
 NOTES:
-- Resume-safe: cached years and completed batches are skipped
-- Bloomberg Terminal must be running on Windows/Parallels
-- Expected runtime: 20-45 min (NKY is smaller than R1000)
-- Japanese member codes come back with exchange suffix "JT" (Tokyo);
-  these are converted to composite "JP Equity" for pricing queries.
+    - Resume-safe: cached years and completed batches are skipped on re-run.
+    - Bloomberg Terminal must be running on Windows/Parallels.
+    - Expected runtime: 20-45 min (NKY is smaller than R1000).
+    - Japanese member codes come back with exchange suffix "JT" (Tokyo);
+      these are converted to composite "JP Equity" for pricing queries.
+    - Pre-2005 years with no Bloomberg data are backfilled from the earliest
+      non-empty year (~2005) using NKY's low turnover assumption.
 =============================================================================
 """
 

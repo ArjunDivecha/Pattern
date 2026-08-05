@@ -2,28 +2,42 @@
 =============================================================================
 SCRIPT NAME: deciles.py
 =============================================================================
-INPUT:
-- predictions DataFrame with columns:
-    ticker, end_date, forward_return, label, p_up_mean
-
-OUTPUT:
-- portfolios_long  : DataFrame [end_date, decile, mean_forward_return, n_stocks]
-- ls_series        : DataFrame [end_date, long_ret, short_ret, ls_ret, n_long, n_short]
 
 DESCRIPTION:
-Cross-sectional decile construction for PRD §8 backtest.
+    Cross-sectional decile portfolio construction for the PRD Section 8
+    backtest framework. Given a predictions DataFrame indexed by formation
+    date with per-stock scores (e.g., ensemble probability of an up move),
+    this module ranks stocks into deciles on each formation day, computes
+    equal-weighted mean forward returns within each decile bucket, and
+    produces a long-short time series (top decile minus bottom decile).
+    Holdings are overlapping by construction — each formation day spawns a
+    new portfolio held for the full return horizon — so Newey-West standard
+    errors with lag >= holding_period - 1 are used to handle serial
+    correlation.
 
-Each formation day t:
-  1. Rank stocks by the ensemble score (default: p_up_mean) into n_deciles buckets
-  2. Equal-weight within each bucket
-  3. Report each bucket's mean forward_return (log, horizon = label horizon)
-  4. Long-short  (D10 - D1)  is the headline portfolio
+INPUT FILES:
+    (none — this module receives DataFrames as function arguments)
 
-Holdings are overlapping by construction: every formation day produces a new
-portfolio held for `holding_period_days` (usually 20). We do NOT spread
-returns across daily buckets — each formation day gets a single 20-day
-forward observation. Newey-West standard errors (lag ≥ holding_period - 1)
-handle the serial correlation induced by the overlap.
+OUTPUT FILES:
+    (none — this module returns DataFrames; callers persist as needed)
+
+VERSION: 1.0
+LAST UPDATED: 2026-06-05
+AUTHOR: Arjun Divecha
+
+DEPENDENCIES:
+    - numpy
+    - pandas
+
+USAGE:
+    python deciles.py
+    (imported and called by backtest scripts; not run standalone)
+
+NOTES:
+    - The score column defaults to 'p_up_mean'; override via score_col.
+    - Days with fewer than 2 * n_deciles stocks are skipped.
+    - Decile 1 = lowest score, Decile N = highest score.
+    - Long-short portfolio is D10 - D1.
 =============================================================================
 """
 from __future__ import annotations

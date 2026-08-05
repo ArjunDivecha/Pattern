@@ -2,14 +2,47 @@
 =============================================================================
 SCRIPT NAME: cnn.py
 =============================================================================
-DESCRIPTION:
-Parametric CNN for PRD §6.  Supports I5/I20/I60 via config.
-FC input size is computed dynamically by running a dummy forward pass,
-avoiding hard-coded spatial flow numbers.
 
-Usage:
+DESCRIPTION:
+    Defines ChartCNN, a parametric convolutional neural network for
+    classifying financial chart images into up/down categories (PRD §6).
+    The architecture is configured via ModelConfig and ImageConfig objects:
+    a configurable number of ConvBlock layers (each with convolution, batch
+    norm, leaky ReLU, and pooling) followed by a dropout layer and a linear
+    classifier head producing two logits (down, up).  The fully-connected
+    input size is computed dynamically via a dummy forward pass to avoid
+    hardcoded spatial-dimension assumptions, allowing the same code to
+    support I5/I20/I60 image resolutions.  No softmax is applied internally
+    (the caller uses nn.CrossEntropyLoss); helper methods provide softmax
+    probabilities and a compact feature embedding for similarity/regime
+    analysis.
+
+INPUT FILES:
+    (none — this script defines a PyTorch model class with no file I/O)
+
+OUTPUT FILES:
+    (none — this script only defines a PyTorch model class)
+
+VERSION: 1.0
+LAST UPDATED: 2026-06-05
+AUTHOR: Arjun Divecha
+
+DEPENDENCIES:
+    - torch
+    - pattern.config (ImageConfig, ModelConfig)
+    - pattern.models.blocks (ConvBlock)
+
+USAGE:
     from pattern.config import ModelConfig, ImageConfig
     model = ChartCNN(ModelConfig(), ImageConfig())
+
+NOTES:
+    - No file I/O operations exist in this file — it is a pure model
+      definition intended for use as an imported module.
+    - Weights are initialised with Xavier uniform; biases zero.
+    - For inference, call predict_proba() to obtain softmax probabilities.
+    - forward_with_features() returns both logits and a
+      global-average-pooled embedding for downstream analysis.
 =============================================================================
 """
 

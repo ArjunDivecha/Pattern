@@ -1,4 +1,42 @@
-"""Top-3 vs Bottom-3 decile portfolio, expanding pathway."""
+"""
+=============================================================================
+SCRIPT NAME: plot_top3_bot3.py
+=============================================================================
+
+DESCRIPTION:
+Generates cumulative-return charts comparing Top-3 vs Bottom-3 decile portfolios
+from expanding-pathway predictions. Also plots the long-short spread for both
+the top/bottom 30% (LS3) and top/bottom 10% (LS10). Produces PDF and PNG output
+with annualised performance statistics printed to stdout.
+
+INPUT FILES:
+- /Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/runs/expanding/20260419_174908_cdef6809/predictions.parquet: Model predictions with forward returns and p_up_mean scores
+
+OUTPUT FILES:
+- /Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/runs/expanding/20260419_174908_cdef6809/top3_vs_bot3.pdf: Cumulative return chart (log scale, PDF)
+- /Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/runs/expanding/20260419_174908_cdef6809/top3_vs_bot3.png: Cumulative return chart (log scale, PNG, 140 DPI)
+
+VERSION: 1.0
+LAST UPDATED: 2026-04-19
+AUTHOR: [Not provided]
+
+DEPENDENCIES:
+- matplotlib (with Agg backend)
+- numpy
+- pandas
+- pathlib
+
+USAGE:
+  python plot_top3_bot3.py
+
+NOTES:
+- Uses the Agg matplotlib backend (no display required).
+- Top-3 = deciles 8, 9, 10 (highest predicted up probability).
+- Bottom-3 = deciles 1, 2, 3 (lowest predicted up probability).
+- Returns are sampled every 20 trading days for non-overlapping compounding.
+- Prints annualised returns, Sharpe ratios, and Newey-West t-statistics.
+=============================================================================
+"""
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt

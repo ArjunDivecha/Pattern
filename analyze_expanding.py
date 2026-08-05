@@ -1,4 +1,42 @@
-"""Quick analysis of expanding-pathway predictions."""
+"""
+=============================================================================
+SCRIPT NAME: analyze_expanding.py
+=============================================================================
+
+DESCRIPTION:
+Quick analysis of expanding-pathway predictions. Reads prediction and
+window-statistics parquet files from an expanding-window ML run, computes
+overall and per-window AUC, constructs decile-based long-short portfolios,
+and prints performance statistics (Sharpe ratio, Newey-West t-stat,
+year-by-year breakdowns).
+
+INPUT FILES:
+- /Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/runs/expanding/20260419_174908_cdef6809/predictions.parquet: Model predictions with forward returns and labels
+- /Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/runs/expanding/20260419_174908_cdef6809/window_stats.csv: Per-window training statistics (wall time, GPU memory, etc.)
+
+OUTPUT FILES:
+- None (prints analysis results to stdout)
+
+VERSION: 1.0
+LAST UPDATED: 2026-04-19
+AUTHOR: [Not provided]
+
+DEPENDENCIES:
+- numpy
+- pandas
+- pathlib
+- sklearn.metrics
+
+USAGE:
+  python analyze_expanding.py
+
+NOTES:
+- Expects the run directory structure under runs/expanding/YYYYMMDD_HHMMSS_<hash>/.
+- Current analysis targets the 20260419_174908_cdef6809 run.
+- Long-short analysis uses 20-day forward returns with non-overlapping monthly (every 20 trading days) subsample for clean Sharpe calculation.
+- Newey-West t-stat uses lag=19 for overlapping daily series adjustment.
+=============================================================================
+"""
 import numpy as np
 import pandas as pd
 from pathlib import Path

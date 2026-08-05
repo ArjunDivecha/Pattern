@@ -1,4 +1,46 @@
-"""Tests for data splitting logic in splits.py."""
+"""
+=============================================================================
+SCRIPT NAME: test_splits.py
+=============================================================================
+
+DESCRIPTION:
+    Tests for the data splitting and label-balancing functions in the Pattern
+    library.  Generates synthetic monthly time-series DataFrames in memory
+    (no external data) and verifies that:
+
+      - debug_split() produces train/val/test splits with no date overlap.
+      - Test dates are strictly after the latest train+val date.
+      - The validation fraction matches the configured ratio within tolerance.
+      - balance_labels() returns equal counts of each label class while
+        preserving the minority class size.
+
+INPUT FILES:
+    (none — this script generates its own synthetic data in memory)
+
+OUTPUT FILES:
+    (none — this script only prints assertion results to stdout via pytest)
+
+VERSION: 1.0
+LAST UPDATED: 2026-06-05
+AUTHOR: Arjun Divecha
+
+DEPENDENCIES:
+    - pandas
+    - pytest
+    - pattern.config (SplitConfig)
+    - pattern.data.splits (debug_split, balance_labels)
+
+USAGE:
+    pytest tests/test_splits.py          (from project root)
+    python -m pytest test_splits.py      (from tests/ directory)
+
+NOTES:
+    - All data is synthetic and deterministic; no fixtures or external
+      dependencies beyond the packages listed above.
+    - The _make_df helper produces 12 rows per year (one per month) for a
+      single ticker with a fixed label of 1.
+=============================================================================
+"""
 
 import pandas as pd
 import pytest

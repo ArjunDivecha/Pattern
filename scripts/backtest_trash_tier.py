@@ -3,34 +3,65 @@
 SCRIPT NAME: backtest_trash_tier.py
 =============================================================================
 
+DESCRIPTION:
+    Evaluates a trash-tier factor strategy on US equities. At each month-end,
+    stocks are bucketed into size (Small/Mid/Large by 60-day dollar volume),
+    momentum (Low/Mid/High by 12-1 month momentum), and volatility
+    (Low/Mid/High by 60-day realized vol) tertiles within each date. Five
+    progressive filter intersections are then applied: (1) Small only,
+    (2) Small & high-vol, (3) Small & recent-loser, (4) High-vol &
+    recent-loser, (5) Small & high-vol & recent-loser (triple trash). Inside
+    each filtered subset, stocks are ranked by a predicted probability
+    (p_up_mean) and a 50/50 top-half versus bottom-half long-short portfolio
+    is formed. Outputs include per-filter summary statistics (CAGR, Sharpe,
+    Newey-West t-stat), daily long-short portfolio returns, and a stacked
+    cumulative performance chart.
+
 INPUT FILES:
-- --predictions PATH    predictions_monthly.parquet (ticker, end_date,
-                        forward_return, label, p_up_mean, p_up_std)
-- --ohlcv PATH          data/r1000_ohlcv_database.parquet
+    --predictions PATH
+        Parquet file with columns: ticker, end_date, forward_return, label,
+        p_up_mean, p_up_std. Path provided via the --predictions CLI argument.
+    --ohlcv PATH
+        Parquet file with OHLCV data (Ticker, Date, Close, Volume, AdjClose).
+        Path provided via the --ohlcv CLI argument (default:
+        data/r1000_ohlcv_database.parquet).
 
 OUTPUT FILES:
-- {out_dir}/trash_tier_summary.xlsx       stats per filter combination
-- {out_dir}/trash_tier_portfolios.parquet per-filter daily returns
-- {out_dir}/trash_tier_cumulative.pdf     cumulative LS by filter stack
+    {out_dir}/trash_tier_summary.xlsx
+        Per-filter annualised stats (mean universe size, months, CAGR,
+        Sharpe, Newey-West t-stat) written to the --out-dir directory.
+    {out_dir}/trash_tier_portfolios.parquet
+        Daily long-short portfolio returns for each filter intersection,
+        written to the --out-dir directory.
+    {out_dir}/trash_tier_cumulative.pdf
+        Stacked 2x3 panel plot of cumulative performance (log-scale) for
+        each filter, showing TOP, BOT, EW, and LS lines.
+    {out_dir}/trash_tier_cumulative.png
+        PNG copy of the cumulative performance plot (130 DPI).
 
-DESCRIPTION:
-Per-date filtering: at each month-end, bucket names into Small/Mid/Large by
-60d dollar-volume, Low/Mid/High by 252-21d momentum, Low/Mid/High by 60d
-realized vol.  Then progressively intersect the extreme-trash buckets:
-  (1) Small only
-  (2) Small & high-vol
-  (3) Small & recent-loser
-  (4) High-vol & recent-loser
-  (5) Small & high-vol & recent-loser  (triple)
+VERSION: 1.0
+LAST UPDATED: 2026-06-05
+AUTHOR: Arjun Divecha
 
-Inside each filter's per-date subset, rank by p_up_mean and form a 50/50
-top-half vs bot-half LS portfolio.  Compare per-month universe size and
-annualised stats across filters.
+DEPENDENCIES:
+    - argparse
+    - matplotlib
+    - numpy
+    - pandas
+    - openpyxl
 
 USAGE:
-  python scripts/backtest_trash_tier.py \
-      --predictions runs/expanding/.../predictions_monthly.parquet \
-      --out-dir runs/expanding/.../backtest_trash_tier
+    python scripts/backtest_trash_tier.py \
+        --predictions runs/expanding/.../predictions_monthly.parquet \
+        --out-dir runs/expanding/.../backtest_trash_tier
+
+NOTES:
+    - Requires a predictions parquet from a prior model run and an OHLCV
+      parquet with daily price/volume data for the R1000 universe.
+    - Output paths are determined by the --out-dir argument; all output
+      files use fixed names relative to that directory.
+    - The --ohlcv default path is relative to the working directory at
+      runtime, not to the script's location.
 =============================================================================
 """
 from __future__ import annotations

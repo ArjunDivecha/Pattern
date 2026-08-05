@@ -3,37 +3,57 @@
 SCRIPT NAME: backtest_liquid_grid.py
 =============================================================================
 
+DESCRIPTION:
+    Searches the LIQUID end of the R1000 universe for tradable cells of a CNN
+    signal. At each month-end, stocks are bucketed by dollar-volume tertile
+    (dv_60d), realized volatility tertile (vol_60d), and/or momentum tertile
+    (mom_12_1). Inside each cell, a 50/50 top-half vs bottom-half long-short
+    portfolio is formed on the p_up_mean prediction signal. For each cell the
+    script reports mean universe size, CAGR for top/bot/LS/EW, LS Sharpe and
+    Newey-West t-statistic, one-sided monthly turnover, and a realistic
+    half-spread estimate by dollar-volume tier. Cost drag is subtracted to
+    produce a net LS CAGR. Results are printed to stdout and saved to a
+    multi-sheet Excel workbook.
+
 INPUT FILES:
-- --predictions PATH    predictions_monthly.parquet
-- --ohlcv PATH          data/r1000_ohlcv_database.parquet
+    /Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/scripts/data/r1000_ohlcv_database.parquet
+        OHLCV data for the R1000 universe (default path; overridable via
+        --ohlcv). Used to compute features (dollar volume, momentum, realized
+        volatility).
+    (--predictions CLI arg)
+        Monthly prediction parquet file containing ticker, end_date,
+        p_up_mean, and forward_return columns. Path is required via
+        --predictions.
 
 OUTPUT FILES:
-- {out_dir}/liquid_grid_summary.xlsx   per-cell stats + cost drag
-- {out_dir}/liquid_grid_portfolios.parquet
+    ({out_dir}/liquid_grid_summary.xlsx, via --out-dir CLI arg)
+        Multi-sheet Excel workbook with marginals, dv-x-vol, dv-x-mom,
+        dv-x-vol-x-mom, and tradable cells sheets. Each sheet contains per-cell
+        statistics including CAGRs, Sharpe ratios, Newey-West t, turnover,
+        spread estimates, cost drag, and net LS CAGR.
 
-DESCRIPTION:
-Searches the LIQUID end of R1000 for a tradable cell of the CNN signal:
-a place where LS is positive & significant AND the names are cheap
-enough to trade (spread ~3-10 bps, easy borrow).
+VERSION: 1.0
+LAST UPDATED: 2026-06-05
+AUTHOR: Arjun Divecha
 
-At each month-end we bucket by:
-  - dv_60d (small/mid/large $-volume)
-  - vol_60d (low/mid/high realized vol)   OR
-  - mom_12_1 (loser/neutral/winner)
-
-Inside each 3×3 cell we form 50/50 top-half vs bot-half LS by p_up_mean.
-Per cell we report:
-  - mean universe, mean #top, months
-  - TOP / BOT / LS / EW CAGR
-  - LS Sharpe and Newey-West t
-  - one-sided monthly turnover (ticker symmetric-diff / (|S|+|S_prev|))
-  - realistic half-spread estimate (bps) keyed off $-volume tertile
-  - cost drag per year and net LS CAGR
+DEPENDENCIES:
+    - pandas
+    - numpy
+    - argparse
+    - openpyxl
 
 USAGE:
-  python scripts/backtest_liquid_grid.py \
-      --predictions runs/expanding/.../predictions_monthly.parquet \
-      --out-dir runs/expanding/.../backtest_liquid_grid
+    python scripts/backtest_liquid_grid.py \
+        --predictions runs/.../predictions_monthly.parquet \
+        --out-dir runs/.../backtest_liquid_grid
+
+NOTES:
+    - Input and output paths are configured via CLI arguments (--predictions,
+      --ohlcv, --out-dir). The default OHLCV path is relative to the script
+      directory.
+    - At least 3 stocks per cell are required to form tertile bucketing.
+    - Half-spread assumptions by dollar-volume tier: Low=25 bps, Mid=8 bps,
+      High=2.5 bps (one-sided).
 =============================================================================
 """
 from __future__ import annotations

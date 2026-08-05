@@ -3,41 +3,72 @@
 SCRIPT NAME: train_full_for_live.py
 =============================================================================
 
-INPUT:
-- --config configs/prod_expanding.yaml  (for data/image/model/train sections)
-- --weight-mode {equal, ewma}
-- --half-life-years 5.0                  (only used when weight-mode=ewma)
-- --n-epochs 10                          (fixed budget, no validation)
-- --n-seeds 5
-- --output-dir /data/Pattern/runs/final
-- --tag                                  (e.g. "equal_20260420" or "ewma_5yr")
-
-OUTPUT:
-- {output_dir}/<tag>_<ts>/ewma_ensemble_{k}.pt            x5
-- {output_dir}/<tag>_<ts>/ewma_ensemble_{k}_training_log.csv
-- {output_dir}/<tag>_<ts>/predictions.parquet            full-universe scores
-- {output_dir}/<tag>_<ts>/config.yaml, ewma_params.json
-
 DESCRIPTION:
-Trains one 5-seed ensemble on the ENTIRE image cache (1996→today) with
-either equal-weight or exponentially-decayed sample weights.  No validation,
-no test: this is the "live deployment" model the user will apply to fresh
-data going forward.  Class balance via balance_labels (undersampling).
-Weights are applied in the loss, not the sampler.
+    Trains one 5-seed ensemble of ChartCNN models on the entire image cache
+    (1996 to present) for live deployment.  Two weighting modes are supported:
+    equal-weight (each sample counts equally) or exponentially-weighted
+    moving average (EWMA) with a configurable half-life, which down-weights
+    older samples.  No validation or test split is performed -- this is the
+    final model the user will apply to fresh data going forward.  Class
+    balance is achieved via balance_labels (undersampling).  Sample weights
+    are applied in the loss function, not the data sampler.  After training,
+    the script scores every labelled sample in the cache and saves the
+    predictions as a parquet file along with model checkpoints and metadata.
+
+INPUT FILES:
+    /Users/arjundivecha/Dropbox/AAA%20Backup/A%20Working/Pattern/configs/prod_expanding.yaml
+        YAML config file specifying data, image, model, and train sections
+        (path user-supplied via --config; shown here is the default).
+
+    /data/Pattern/cache/prod_I20
+        Directory of pre-computed chart images and the associated index
+        DataFrame (loaded via pattern.imaging.cache.load_cache).  The path
+        is specified by cfg.image.cache_dir in the config file.
+
+OUTPUT FILES:
+    {run_dir}/ensemble_{k}.pt
+        Trained ChartCNN state dict for seed k (0-indexed).  run_dir is
+        {output_dir}/{tag}_{timestamp}_{config_hash}.
+
+    {run_dir}/ensemble_{k}_training_log.csv
+        Per-epoch training log (epoch, train_loss, train_acc, wall_s) for
+        each seed.
+
+    {run_dir}/predictions.parquet
+        Full-universe out-of-sample scores: ticker, end_date,
+        forward_return, label, per-seed p_up probabilities, ensemble mean
+        and std, rank percentile, and decile per date.
+
+    {run_dir}/config.yaml
+        Copy of the input config file for reproducibility.
+
+    {run_dir}/params.json
+        JSON dump of training parameters (weight_mode, half_life_years,
+        reference_date, n_epochs, n_seeds, lambda).
+
+VERSION: 1.0
+LAST UPDATED: 2026-06-05
+AUTHOR: Arjun Divecha
+
+DEPENDENCIES:
+    - torch, numpy, pandas, pyyaml
+    - pattern (local package: config, data.splits, imaging.cache,
+      models.cnn, train.dataset, train.loop)
 
 USAGE:
-  # Equal-weighted (baseline "today" model)
-  python scripts/train_full_for_live.py --config configs/prod_expanding.yaml \
-      --weight-mode equal --tag equal --n-epochs 10
+    # Equal-weighted (baseline "today" model)
+    python scripts/train_full_for_live.py --config configs/prod_expanding.yaml \
+        --weight-mode equal --tag equal --n-epochs 10
 
-  # EWMA with 5-year half-life
-  python scripts/train_full_for_live.py --config configs/prod_expanding.yaml \
-      --weight-mode ewma --half-life-years 5 --tag ewma_5yr --n-epochs 10
+    # EWMA with 5-year half-life
+    python scripts/train_full_for_live.py --config configs/prod_expanding.yaml \
+        --weight-mode ewma --half-life-years 5 --tag ewma_5yr --n-epochs 10
 
 NOTES:
-- Pin CUDA_VISIBLE_DEVICES at the shell level to run on a specific GPU.
-- predictions.parquet is generated over every labelled sample in the cache so
-  you can decile-sort on any subset afterwards.
+    - Pin CUDA_VISIBLE_DEVICES at the shell level to run on a specific GPU.
+    - predictions.parquet is generated over every labelled sample in the
+      cache so you can decile-sort on any subset afterwards.
+    - The --output-dir default is /data/Pattern/runs/final.
 =============================================================================
 """
 from __future__ import annotations

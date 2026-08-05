@@ -1,4 +1,41 @@
-"""Cumulative-return chart, all 10 deciles + long-short, expanding pathway."""
+"""
+=============================================================================
+SCRIPT NAME: plot_deciles.py
+=============================================================================
+
+DESCRIPTION:
+Generates a cumulative-return chart showing all 10 decile portfolios and the
+long-short (D10 - D1) strategy from expanding-pathway predictions. Produces both
+PDF and PNG output. Deciles are assigned cross-sectionally per end_date based on
+p_up_mean, and returns are compounded on a non-overlapping 20-day schedule.
+
+INPUT FILES:
+- /Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/runs/expanding/20260419_174908_cdef6809/predictions.parquet: Model predictions with forward returns and p_up_mean scores
+
+OUTPUT FILES:
+- /Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/runs/expanding/20260419_174908_cdef6809/decile_cumulative.pdf: Cumulative return chart (log scale, PDF)
+- /Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/runs/expanding/20260419_174908_cdef6809/decile_cumulative.png: Cumulative return chart (log scale, PNG, 140 DPI)
+
+VERSION: 1.0
+LAST UPDATED: 2026-04-19
+AUTHOR: [Not provided]
+
+DEPENDENCIES:
+- matplotlib (with Agg backend)
+- numpy
+- pandas
+- pathlib
+
+USAGE:
+  python plot_deciles.py
+
+NOTES:
+- Uses the Agg matplotlib backend (no display required).
+- Deciles are assigned per end_date via pd.qcut with rank-based tie-breaking.
+- Returns are sampled every 20 trading days for non-overlapping compounding.
+- Long-short portfolio compounds its own return for the bottom panel.
+=============================================================================
+"""
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt

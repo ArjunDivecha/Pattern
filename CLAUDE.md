@@ -1,114 +1,55 @@
-# CLAUDE.md
+# CLAUDE.md — Pattern (operator's manual)
 
-## OpenWiki
+Guidance for a coding agent working in this repo. Global rules (light mode, doc-header
+blocks, `file://` result links, FAIL-IS-FAIL) live in `~/CLAUDE.md` and are not repeated here.
+Deeper prose docs: `openwiki/quickstart.md` (start there for narrative), `PRD.md` (full spec),
+`README.md` (985 lines of results + research addenda A–I), `strategy_memo.md` (2-page summary).
 
-This repository has documentation located in the /openwiki directory.
+## Purpose
+Replication of Jiang, Kelly & Xiu (2023) *"(Re-)Imag(in)ing Price Trends"*. Daily OHLCV → 64×60
+grayscale candlestick images → 5-seed CNN ensemble predicting 20-day-forward return direction
+(the **I20/R20** config) → cross-sectional decile long-short portfolios. Runs at production scale
+on the Russell 1000 (~3,000 tickers, 1996–2026) via expanding-window annual retraining.
 
-Start here:
-- [OpenWiki quickstart](openwiki/quickstart.md)
+## Architecture map (load-bearing files, absolute paths)
+Repo root: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern`
+- `pattern/cli.py` — entry point (`train` / `backtest`), run-dir creation, per-window train loop, prediction/decile assembly. Sets `purge_days = window + horizon − 1`.
+- `pattern/config.py` — Pydantic `Config` tree + `Config.from_yaml()`; all defaults live here.
+- `pattern/data/loader.py` — CSV → tidy frame, adjusted returns, `compute_labels`.
+- `pattern/data/splits.py` — **leakage-critical.** debug/expanding/rolling splits + trading-day purge (`_purge_tail`, `_purge_test_head`) + `balance_labels`.
+- `pattern/imaging/renderer.py` — vectorized per-stock OHLC+MA+volume image generator (pixel-exact geometry).
+- `pattern/imaging/cache.py` — memmap `uint8 (N,1,H,W)` image cache + parquet sidecar index + `compute_pixel_stats`.
+- `pattern/models/cnn.py`, `pattern/models/blocks.py` — `ChartCNN` builder + Conv→BN→LeakyReLU→MaxPool block.
+- `pattern/train/loop.py`, `pattern/train/dataset.py` — ensemble training/early-stop/`predict`; `CachedDataset` over the memmap.
+- `pattern/backtest/report.py` / `deciles.py` / `metrics.py` — backtest orchestration, decile portfolios, Sharpe/turnover/Newey-West t-stats.
+- `scripts/` — multi-GPU drivers (`run_multi_gpu.py`, `gpu_scheduler.py`), data fetch (`fetch_etf_data.py`, `fetch_sse_data.py`), post-hoc slicing/backtests, live scoring (`score_live.py`).
+- `src/build_r1000_database.py`, `src/build_nky_database.py` — Bloomberg-backed OHLCV database builders.
+- `webapp/` — FastAPI live-scoring app. `configs/{debug,production,prod_expanding,prod_rolling}.yaml`.
 
-OpenWiki includes repository overview, architecture notes, workflows, domain concepts, operations, integrations, testing guidance, and source maps.
+## Commands that work
+Use the repo venv (Python 3.14): `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/.venv/bin/python`
+- `.venv/bin/python -m pattern --help` — **verified** (rc 0); subcommands `train`, `backtest`.
+- `.venv/bin/python -m pytest tests/ -q` — **verified** (21 passed, ~0.3 s; pure unit tests, no GPU/data).
+- `.venv/bin/python -m pattern train --config configs/debug.yaml` — entry verified via `--help`; full run **(unverified — trains the ensemble; needs the R1000 CSV + builds the image cache; not executed here)**.
+- `.venv/bin/python -m pattern backtest --run-dir <run> --config <cfg>` — entry verified via `--help`; **(unverified — needs an existing run's `predictions.parquet`)**.
+- `scripts/run_multi_gpu.py`, `scripts/gpu_scheduler.py` — 8×A100 drivers **(unverified — CUDA-only; will not run on this Mac's MPS)**.
 
-When working in this repository, read the OpenWiki quickstart first, then follow its links to the relevant architecture, workflow, domain, operation, and testing notes.
+## Data locations (all under repo root; all git-ignored)
+- Input panels — `data/r1000_ohlcv_database.csv` (+ `.parquet`); also `nky_`, `etf_`, `liquid_etf_`, `industry28_`, `sse_` variants. Columns: `Ticker,Date,Open,High,Low,Close,Volume[,AdjClose,Return,MarketCap]`.
+- Classifications — `data/r1000_classifications.parquet` (BICS sectors for slicing).
+- Image cache — `cache/` (memmap `uint8` + parquet sidecar; ~25 MB debug, full I20 ≈ 20 GB).
+- Run outputs — `runs/<timestamp>_<confighash>/` (per-window `*_predictions.parquet`, `*_features.npz`, `config.yaml`, `git_sha.txt`, `window_stats.csv`, `predictions.parquet`, `report.md`). Named pathways: `runs/expanding`, `runs/rolling`, `runs/final`, `runs/liquid_etf_expanding`, `runs/sse_underlying_expanding`.
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Conventions & gotchas (repo-specific, non-obvious)
+- **Purge = leakage guard.** `purge_days = window + horizon − 1` (= 39 for I20/R20). Splits use a *time-based* train/val cut (not random) because same-ticker adjacent windows have ~90% label persistence — a random split leaks. Never set `purge_days=0` outside unit fixtures. See FABLE.md P0: the purge magnitude is currently under-tested.
+- **`pin_memory` only on CUDA** (`cli.py:199–203`). On MPS/CPU it is a no-op at best and caused *sporadic non-finite batches* — leave it off.
+- **Balance train only.** `balance_labels` 50/50 undersamples train; val/test stay at natural class distribution so metrics are honest.
+- **Low AUC is expected.** Test AUC ≈ 0.507; the edge is diffuse across thousands of names. The portfolio Newey-West t (~+8) is the real signal, not per-name accuracy.
+- **Python 3.14 fragility.** Jinja2 × Python 3.14 broke the webapp `/` route once (commit `3acb7ad`). Re-check FastAPI/Jinja2 compat when touching `webapp/`.
+- **Multi-GPU sharding.** Shards share one `--run-dir`; `window_stats.csv` is append-only with a guarded header; GPU is picked by the caller via `CUDA_VISIBLE_DEVICES=N`.
+- **Reproducibility artifacts** (`config.yaml`, `git_sha.txt`, `pip_freeze.txt`) are written once per run dir by the first shard — don't assume every shard writes them.
 
-## Project Overview
-
-Replication of Jiang, Kelly, Xiu (2023) *"(Re-)Imag(in)ing Price Trends"* (JF 78(6)). Trains an ensemble of 5 CNNs on OHLC+volume candlestick chart images to predict 20-day forward return direction (**I20/R20** config). Input: a single CSV of daily OHLCV data for ~1,000 US stocks.
-
-Reference paper: `Pattern-2.pdf`. Full spec: `PRD.md`.
-
-## Commands
-
-```bash
-# Install dependencies (once code exists)
-pip install -r requirements.txt
-
-# Run full pipeline (debug mode)
-python -m pattern train --config configs/debug.yaml
-
-# Run tests
-pytest tests/ -v
-
-# Run a single test file
-pytest tests/test_renderer.py -v
-
-# Run with production expanding-window splits
-python -m pattern train --config configs/production.yaml
-```
-
-## Code Architecture
-
-The suggested module layout (from PRD §11) — implement in this structure:
-
-```
-pattern/
-  config.py          # Pydantic config models (schema in PRD §10)
-  cli.py             # Entry point: `python -m pattern train/backtest`
-  data/
-    loader.py        # CSV → tidy DataFrame + adjusted returns
-    splits.py        # debug / expanding / rolling train-val-test splits
-  imaging/
-    renderer.py      # Vectorized per-stock OHLC+MA+volume image generator
-    cache.py         # memmap uint8 array (N,1,H,W) + parquet sidecar index
-  models/
-    blocks.py        # Single conv building block (Conv→BN→LeakyReLU→MaxPool)
-    cnn.py           # Parametric CNN builder for I5/I20/I60 configs
-  train/
-    dataset.py       # PyTorch Dataset over memmap cache
-    loop.py          # Ensemble training loop with early stopping
-  backtest/
-    deciles.py       # Cross-sectional decile portfolio construction
-    metrics.py       # Sharpe, turnover, drawdown, Newey-West t-stats
-    report.py        # Auto-generate report.md + plots
-tests/
-  test_renderer.py   # Pixel-exact checks on OHLC/MA/volume drawing
-  test_labeling.py
-  test_splits.py
-```
-
-## Key Implementation Details
-
-### Image Geometry (I20)
-- Size: 64×60 px, 1 channel (grayscale), binary pixels {0, 255}
-- Each day = 3 columns: `3t` = open tick, `3t+1` = H–L bar + MA pixel + volume bar, `3t+2` = close tick
-- OHLC region: top 51 rows; 1 blank gap row; volume region: bottom 12 rows
-
-### Price Normalization (per window)
-1. Normalize first day's close to 1.0; reconstruct via returns
-2. Scale O/H/L by `p_t / close_t` to remove splits/dividends
-3. Rescale vertical axis so min/max OHLC touches image bounds
-4. Volume scaled independently: max volume = top of volume region
-
-### CNN Block (I20 has 3 blocks, channels 1→64→128→256)
-```
-Conv2d(kernel=(5,3), stride=(3,1), padding=(12,1), dilation=(2,1))
-→ BatchNorm2d → LeakyReLU(0.01) → MaxPool2d(kernel=(2,1), stride=(2,1))
-```
-Head: Flatten → Dropout(0.5) → Linear → 2 logits → Softmax
-
-### Training
-- Adam lr=1e-5, batch=128, early stopping patience=2, max 100 epochs
-- 5 seeds → 5 models → ensemble-averaged `P(up)`
-- Class-balance training set only (50/50 undersample); test left unbalanced
-
-### Image Cache
-- Single memmap `uint8` array per config, shape `(N, 1, H, W)` keyed by `(ticker, end_date, window, has_ma, has_volume)`
-- Parquet sidecar with columns `ticker, end_date, label_h, forward_return, label`
-- Expected size ~20 GB for full I20 dataset
-
-### Output Structure
-Each run writes to `runs/<timestamp>_<config_hash>/` — models, predictions parquet, training log CSV, portfolio parquets, and `report.md`.
-
-## Hardware
-M4 Max with 128 GB RAM. Use MPS for PyTorch:
-```python
-device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
-```
-Maximize multiprocessing for image generation (embarrassingly parallel per ticker).
-
-## Data
-- Input CSV columns: `Ticker, Date, Open, High, Low, Close, Volume` (optionally `AdjClose, Return, MarketCap`)
-- If `Return` absent, compute from `AdjClose`; if `MarketCap` absent, value-weighted backtest falls back to equal-weighted with a warning
-- Confirm with user: share volume vs dollar volume, and `MarketCap` availability before implementing VW backtest
+## Current state
+- **Research-complete.** R1000 expanding pathway is the headline: LS D10−D1 Sharpe 1.22, NW t +7.99, +17.4%/yr, 1999–2026, 25/28 test years positive.
+- **Deployment question answered (mostly negative).** Alpha concentrates in small-cap, high-vol, recent-loser names that are expensive to trade; capacity ≈ $500k–$1M/side. ETF and single-stock-ETF transfer all failed (README addenda H, I). One tradable R1000 cell survives net of costs (mid-cap × high-vol × recent-loser, ~+13% net CAGR, Sharpe 0.79, t 3.86).
+- **Working tree is dirty (uncommitted):** 14 modified tracked files + 1 untracked (`scripts/plot_mid_cell_since2020.py`), ~653 insertions — a doc-header sweep plus real code edits in `backtest/` and `models/cnn.py`. Review and commit before building on top.
