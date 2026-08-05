@@ -79,7 +79,7 @@ def compute_features(ohlcv: pd.DataFrame) -> pd.DataFrame:
     df["ret"] = g["AdjClose"].pct_change()
     df["vol_60d"] = g["ret"].transform(
         lambda s: s.rolling(60, min_periods=20).std() * np.sqrt(252))
-    return df[["Ticker", "Date", "dv_60d", "mom_12_1", "vol_60d"]].rename(
+    return df[["Ticker", "Date", "Close", "dv_60d", "mom_12_1", "vol_60d"]].rename(
         columns={"Ticker": "ticker", "Date": "end_date"})
 
 
@@ -207,6 +207,13 @@ def main() -> None:
     ap.add_argument("--ohlcv", type=Path,
                     default=Path("data/r1000_ohlcv_database.parquet"))
     ap.add_argument("--out-dir", type=Path, required=True)
+    ap.add_argument("--min-price", type=float, default=0.0,
+                    help="drop rows whose Close is below this before bucketing. "
+                         "Sub-penny bankruptcy shells sort into the small/high-vol/"
+                         "loser cell by construction and inflated the published "
+                         "headline ~2x. Use 5.0 for a deployable number.")
+    ap.add_argument("--since", default=None,
+                    help="restrict to end_date >= this (YYYY-MM-DD)")
     args = ap.parse_args()
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
@@ -217,6 +224,16 @@ def main() -> None:
     preds = pd.read_parquet(args.predictions)
     preds["end_date"] = pd.to_datetime(preds["end_date"])
     preds = preds.merge(feats, on=["ticker", "end_date"], how="left")
+
+    if args.min_price > 0:
+        before = len(preds)
+        preds = preds[preds["Close"] >= args.min_price].copy()
+        print(f"Price floor ${args.min_price:.2f}: {before:,} -> {len(preds):,} rows "
+              f"({len(preds)/before*100:.1f}% kept)")
+    if args.since:
+        before = len(preds)
+        preds = preds[preds["end_date"] >= pd.Timestamp(args.since)].copy()
+        print(f"Since {args.since}: {before:,} -> {len(preds):,} rows")
 
     print("Bucketing …")
     preds["dv_b"]  = bucket3(preds, "dv_60d")

@@ -983,3 +983,205 @@ ETF-only execution (sector rotation with macro inputs, vol-of-vol on
 VXX/UVXY, calendar/seasonality on broad-market ETFs, fixed-income or
 FX-ETF carry/momentum).  Pattern-CNN remains a documented, working
 single-stock alpha that requires single-stock execution capability.
+
+---
+
+# Addendum J — Penny-stock contamination and the corrected headline (2026-08)
+
+**This addendum supersedes the headline numbers in sections B, G and H.**
+Those results are inflated roughly 2× by sub-penny bankruptcy shells.  The
+signal is real and statistically significant at every filter tested — it is
+about half the size previously reported.
+
+## J.1  How it was found
+
+While validating the Bloomberg→yfinance splice (§J.4), the cross-sectional
+daily return moments were plotted around the seam as a sanity check.  Two
+pre-seam days showed a cross-sectional standard deviation of **132 %**
+(2026-04-14) and **407 %** (2026-04-16) across ~1,336 stocks — arithmetically
+impossible for real equities.
+
+The defect is in the Bloomberg leg, predates the splice, and has been present
+in every backtest this project has run.
+
+## J.2  The defect
+
+The Bloomberg panel contains **2,017 rows across 309 tickers with a 1-day
+`AdjClose` return exceeding ±100 %**, spanning 1996-04-12 → 2026-04-16.
+
+They are sub-penny **bankruptcy shells** — `-Q` suffix tickers (DZSIQ, SPWRQ,
+EVVAQ, WLTGQ, BIGGQ, BLIAQ …) trading between $0.0001 and $0.03, where a
+single tick is a +4,800 % return.  A few divide by a near-zero prior price and
+produce `inf`.
+
+**This is not a data error to be cleaned away.**  The prices are what
+Bloomberg reports and the returns are arithmetically correct.  They are
+economically meaningless.
+
+### Why it lands exactly on the alpha
+
+A sub-penny bankrupt shell has:
+
+| Feature | Value | Tertile |
+|---|---|---|
+| `dv_60d` (dollar volume) | tiny | **Low** |
+| `vol_60d` (realized vol) | enormous | **High** |
+| `mom_12_1` (momentum) | terrible | **Low** |
+
+So it sorts into the **small × high-vol × recent-loser cell by construction**.
+The contamination is not spread evenly across the panel — it concentrates
+precisely where the headline alpha is measured.
+
+In the monthly prediction set: **1,002 of 453,002 rows (0.22 %)** have
+|forward return| > 100 %, carrying **3.80 % of total absolute return mass**.
+53.7 % are sub-$1 and 31.6 % are sub-$0.10.
+
+## J.3  Corrected results
+
+Both `backtest_trash_tier.py` and `backtest_liquid_grid.py` now take
+`--min-price`.  `--min-price 5.0` is the deployable setting; `0` reproduces
+the old published numbers.  A $5 floor drops 7.1 % of rows (453,002 → 421,007).
+
+### Trash tier (Low-dv × High-vol × Low-mom), full sample 1999–2026
+
+| Variant | Gross CAGR | Sharpe | NW t | Mean names |
+|---|---:|---:|---:|---:|
+| As published (no floor) | +23.5 % | 1.04 | 5.04 | 124 |
+| Winsorize returns ±100 % | +21.0 % | 1.18 | 5.72 | 124 |
+| **Price ≥ $5** | **+12.8 %** | **0.76** | **3.71** | **90** |
+| Price ≥ $5 + winsorize | +10.1 % | 0.79 | 3.82 | 90 |
+
+### Same cell, since 2020
+
+| Variant | Gross CAGR | Sharpe | NW t |
+|---|---:|---:|---:|
+| As published (no floor) | +43.9 % | 1.43 | 3.29 |
+| **Price ≥ $5** | **+26.7 %** | **1.14** | **2.64** |
+
+### Liquid grid, price ≥ $5 — cells passing net > 0 and t ≥ 2
+
+Full sample (282 months):
+
+| Cell | Names | Gross | Net | Sharpe | t | Half-spread |
+|---|---:|---:|---:|---:|---:|---:|
+| Low × High × Low (trash) | 90 | +12.8 % | **+8.9 %** | 0.76 | 3.71 | 25 bp |
+| Mid × High × High | 54 | +9.3 % | +7.9 % | 0.55 | 2.66 | 8 bp |
+| Mid × High × Low | 70 | +8.4 % | +7.1 % | 0.55 | 2.67 | 8 bp |
+| Low × High (marginal) | 175 | +9.8 % | +6.2 % | 0.92 | 4.46 | 25 bp |
+| Mid × High (marginal) | 151 | +6.7 % | +5.5 % | 0.66 | 3.22 | 8 bp |
+| All R1000 | 1,451 | +2.8 % | +1.9 % | 0.61 | 2.97 | 8 bp |
+
+Since 2020 (63 months):
+
+| Cell | Names | Gross | Net | Sharpe | t | Half-spread |
+|---|---:|---:|---:|---:|---:|---:|
+| Low × High × Low (trash) | 101 | +26.7 % | **+22.9 %** | 1.14 | 2.64 | 25 bp |
+| High × High × High | 52 | +16.1 % | +15.7 % | 0.93 | 2.14 | 2.5 bp |
+| Low × High (marginal) | 178 | +14.4 % | +10.8 % | 1.26 | 2.91 | 25 bp |
+| **High × High (mega-cap, high-vol)** | 126 | +10.8 % | **+10.5 %** | **1.23** | 2.84 | **2.5 bp** |
+| All R1000 | 1,360 | +3.9 % | +2.9 % | 0.97 | 2.24 | 8 bp |
+
+Note that **Mid × High × Low — the "workhorse" cell recommended in §H.2 —
+does not appear in the since-2020 tradable list at all**, consistent with the
+regime finding already recorded there.
+
+## J.4  Reading the two filters against each other
+
+Winsorizing and price-flooring answer different questions, and the *gap*
+between them is the diagnosis:
+
+- Winsorizing at ±100 % barely moved the result (+23.5 % → +21.0 %).
+- A $5 price floor roughly halved it (+23.5 % → +12.8 %).
+
+If a handful of freak outliers were driving the result, winsorizing would have
+killed it.  It did not.  So the driver is a **broad population of low-priced
+names**, and most of those returns are *real* — just untradeable.  A one-cent
+spread on a $0.30 stock is 333 bp; the strategy would pay the entire edge away
+on the bid-ask bounce.
+
+**That makes this a capacity finding, not a data-cleaning one** — and it
+compounds the §E/§G conclusion rather than replacing it.
+
+## J.5  What survives
+
+1. **The signal is real.**  The Newey-West t-statistic stays between 2.6 and
+   3.8 in every filtered variant.  Significance never breaks.
+2. **The magnitude was about double.**  Honest deployable gross is ~+13 %
+   full-sample and ~+27 % since 2020 at a $5 floor, not +28.5 % / +44 %.
+   Net of the 25 bp half-spread drag, roughly **+9 % and +23 %**.
+3. **One genuinely new candidate.**  Since 2020, the mega-cap high-vol cell
+   (High-dv × High-vol, 126 names) returns +10.5 % net at a **2.5 bp**
+   half-spread with Sharpe 1.23 — the best cost-adjusted cell in the recent
+   regime, and by far the largest capacity.  It rests on only 63 months
+   (t 2.84) and did not work full-sample, so treat it as a lead to test, not
+   a result.
+
+## J.6  Splice: Bloomberg history + yfinance forward
+
+`scripts/splice_daily_update.py` extends the Bloomberg panel forward with
+yfinance so the pipeline refreshes daily without a Bloomberg pull.  Bloomberg
+remains the history of record and is never rewritten.
+
+**The one thing that matters:** the two `AdjClose` columns are *not on the
+same scale*.  Bloomberg's total-return index accumulates dividends forward
+from 1996; yfinance's Adj Close is back-adjusted from today.  Measured level
+ratios on 2026-04-17 — AAPL 1.19, MSFT 1.64, JNJ 2.10.  Concatenating them
+would inject a fake 20–110 % one-day return at the seam.  `AdjClose` is
+therefore **chained** off the Bloomberg anchor; raw OHLCV is appended directly
+(verified to match Bloomberg exactly, return correlation 1.000000).
+
+Validation, 2026-08-04:
+
+| Check | Result |
+|---|---|
+| yfinance coverage | 99.0 % (198/200 sampled) |
+| Overlap return correlation | median 1.000000, min 0.9949 (1,339 tickers) |
+| Median absolute daily difference | 0.0015 bp |
+| Panel extended | 2026-04-17 → 2026-08-04 |
+
+Guards: ticker-reuse (only currently-live names extend, so a ticker that went
+dark in 2005 is never resurrected); per-ticker overlap correlation test with
+quarantine (correctly rejected **APTV** and **BDX**, both real spinoffs);
+atomic writes; and a staleness manifest.
+
+**Known free-source holes — 33 of 1,371 names (2.4 %) do not extend.**  BK,
+CTRA and VSCO hard-404 on Yahoo despite being live liquid companies; MASI,
+SATS, IAC, NSA, JHG, BLD, LC and GOCO return 1–29 rows over seven months.
+Retested with pauses — this is not rate-limiting.  All 33 are written to
+`data/r1000_tradeable_universe.csv` with `tradeable=False`; **daily scoring
+must drop them**, because a stale price silently poisons `dv_60d`, `vol_60d`
+and `mom_12_1` and can put a name in the wrong tertile.
+
+```bash
+python scripts/splice_daily_update.py --csv     # daily refresh
+```
+
+### Index membership cadence
+
+**Refresh from Bloomberg once a year, right after the June reconstitution.**
+That is both the minimum and genuinely sufficient:
+
+- **Deletions self-resolve** — a dead name stops returning yfinance data, is
+  flagged stale, and drops out automatically.
+- **Additions are the only real gap** (~150–200 names/yr enter the R1000), but
+  the CNN needs 20 days for the image and `mom_12_1` needs 273 days, so **a new
+  entrant is not scoreable for ~13 months anyway.**  Chasing quarterly IPO adds
+  buys nothing.
+- **Cost is trivial** — ~1,400 unique securities once a year against a
+  ~5,000/month quota.
+
+Caveat: tertile boundaries drift as the universe ages.  One year (~15 %
+turnover) is tolerable; two or more degrades the buckets.  The trash tier is
+*more* sensitive than the full universe because it lives at the R1000/R2000
+boundary where churn is highest.
+
+## J.7  Artefacts
+
+- `scripts/splice_daily_update.py` — the splice, with validation and guards
+- `data/r1000_ohlcv_spliced.{parquet,csv}` — 12,536,918 rows, 3,185 tickers,
+  1996-01-02 → 2026-08-04
+- `data/r1000_tradeable_universe.csv` — staleness manifest (1,338 tradeable)
+- `runs/splice/<TIMESTAMP>/{splice_report.xlsx, splice_summary.json, splice.log}`
+- `runs/expanding/.../backtest_trash_tier_p5/` — trash tier at a $5 floor
+- `runs/expanding/.../backtest_liquid_grid_p5/` — 27-cell grid at a $5 floor
+- `runs/expanding/.../backtest_liquid_grid_p5_since2020/` — same, since 2020
