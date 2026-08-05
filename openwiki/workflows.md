@@ -61,7 +61,7 @@ python scripts/run_multi_gpu.py --config configs/prod_expanding.yaml --prebuild-
 python scripts/run_multi_gpu.py --config configs/prod_expanding.yaml --n-gpus 8
 ```
 
-Uses `configs/prod_expanding.yaml`: 27 expanding windows anchored at 1996. Window 0 trains on 1996–98, tests 1999. Window 26 trains on 1996–2024, tests 2025. Each window trains a 5-seed ensemble (135 total networks). Cache is shared across all windows and GPUs (read-only after build).
+Uses `configs/prod_expanding.yaml`: 28 expanding windows anchored at 1996. Window 0 trains on 1996–98, tests 1999. Window 27 trains on 1996–2025, tests 2026. Each window trains a 5-seed ensemble (140 total networks). Cache is shared across all windows and GPUs (read-only after build).
 
 ### Production Rolling-Window (multi-GPU)
 
@@ -69,7 +69,7 @@ Uses `configs/prod_expanding.yaml`: 27 expanding windows anchored at 1996. Windo
 python scripts/run_multi_gpu.py --config configs/prod_rolling.yaml --n-gpus 8
 ```
 
-Uses `configs/prod_rolling.yaml`: window expands from 3 years up to 5 years, then trails at 5 years. Same shared cache as expanding. 27 windows.
+Uses `configs/prod_rolling.yaml`: window expands from 3 years up to 5 years, then trails at 5 years. Same shared cache as expanding, and the same 28 test years (1999–2026) as the expanding pathway.
 
 ### Full-History Live Model (`scripts/train_full_for_live.py`)
 
@@ -102,7 +102,7 @@ Polls `nvidia-smi` every 30 seconds; whenever a GPU has no compute apps attached
 python scripts/gpu_scheduler.py \
     --config configs/prod_rolling.yaml \
     --run-dir /data/Pattern/runs/rolling/<ts> \
-    --n-windows 27 --n-gpus 8
+    --n-windows 28 --n-gpus 8
 ```
 
 Per-window logs go to `shard_gpu{g}_w{w:02d}.log`. Exits when the queue is empty and all launched shards have finished.
@@ -156,7 +156,7 @@ python scripts/score_live.py \
 
 ### Expanding-Window Scoring (`scripts/score_with_expanding.py`)
 
-Scores a data file using the full expanding-window ensemble (all 27 windows).
+Scores a data file using the full expanding-window ensemble (all 28 windows).
 
 ### Webapp (`webapp/`)
 
@@ -201,3 +201,4 @@ Re-scores saved ensembles over any date range. Loads all 5 state_dicts, stacks e
 Connects to Interactive Brokers TWS/Gateway via `ib_insync` to pull live bid/ask, short-availability, and 30-day historical spread data for the triple-tier-filter universe. Re-prices the monthly portfolios with observed IBKR spreads instead of the Corwin-Schultz proxy.
 
 **Prerequisites:** TWS or IB Gateway running, API enabled, `ib_insync` installed. Requires a Python 3.14 compatibility shim for `ib_insync` event-loop autocreate.
+patibility shim for `ib_insync` event-loop autocreate.

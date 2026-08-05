@@ -101,7 +101,7 @@ cd webapp && uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | **I20/R20** | 20-day chart images (I20) predicting 20-day forward return direction (R20) |
 | **Chart image** | 64×60 px grayscale, binary pixels {0,255}: 3 columns per day (open tick, H-L bar + MA + volume, close tick) |
 | **5-seed ensemble** | 5 CNNs with different seeds; outputs averaged for final `P(up)` |
-| **Expanding window** | Training set grows each year; 27 windows cover 1999–2025 out-of-sample |
+| **Expanding window** | Training set grows each year; 28 windows cover 1999–2026 out-of-sample |
 | **Decile portfolios** | Stocks ranked cross-sectionally by `P(up)` into 10 equal-size buckets; D10−D1 = long-short |
 | **Newey-West t-stat** | Corrects for 20-day overlap in daily forward-return observations (lag=19, Bartlett kernel) |
 

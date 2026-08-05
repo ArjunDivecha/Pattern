@@ -65,7 +65,7 @@ Three split modes, all with trading-day purge gaps to prevent label leakage acro
 | Mode | Function | Description |
 |---|---|---|
 | `debug` | `debug_split()` | First N years for train+val (time-based 70/30), next M years for test. Single window. |
-| `expanding` | `expanding_splits()` | Training window grows each retrain cycle. Returns a list of `{train, val, test}` dicts — one per retraining window (27 for the full R1000 run). |
+| `expanding` | `expanding_splits()` | Training window grows each retrain cycle. Returns a list of `{train, val, test}` dicts — one per retraining window (28 for the full R1000 run). |
 | `rolling` | `rolling_splits()` | Fixed-length or expand-then-roll training window. `max_train_years` caps the window; once reached, it trails. |
 
 **Purge mechanism:** `purge_days = window + horizon - 1` trading days are dropped on both sides of every train/val and val/test boundary so no image window in the earlier set can overlap the forecast horizon of any image window in the later set.
