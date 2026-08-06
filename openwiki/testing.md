@@ -95,4 +95,6 @@ The test suite covers the three highest-risk areas (renderer geometry, label com
 | CNN architecture (`cnn.py`, `blocks.py`) | Spatial flow must produce correct FC input size; first-block vs inner-block conv params | Training convergence on debug config |
 | Config schema (`config.py`) | Pydantic validation, computed fields | All tests (config is loaded everywhere) |
 | Backtest metrics (`metrics.py`) | Newey-West lag, annualization factor, turnover definition | Compare against paper Table II |
+| Backtest price floor (`backtest_trash_tier.py`, `backtest_liquid_grid.py` `--min-price`) | `--min-price 5.0` is the deployable setting; filtering must happen **before** bucketing (same order as `mark_book.py`) or the cell shrinks and stops matching the tracked book | Compare against README §J.3 corrected table |
+| Tracker book / `mark_book.py` | The verify step asserts each sleeve's `meta.json` `as_of` equals the spliced panel's last date; the backtest/paper `track` split must stay distinguishable; benchmark is cash, `ew_cell` is context only | Run `scripts/run_daily.sh` and check for `PATTERN DAILY OK`; compare `mark_book.py` NAV CAGR against the analytic +4.15% figure (README §K.3) |
 | Multi-GPU drivers | Shared run dir idempotency, window-indices parsing | Manual / integration |

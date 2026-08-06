@@ -1,7 +1,7 @@
 ---
 type: "Reference"
 title: "Domain & Strategy"
-description: "Financial strategy and research findings for the Pattern CNN signal: headline results, cross-sectional slicing, trash-tier intersection, regime overlays, trading-cost analysis, liquid-grid pivot, and ETF deployment failures."
+description: "Financial strategy and research findings for the Pattern CNN signal: headline results, cross-sectional slicing, trash-tier intersection, regime overlays, trading-cost analysis, liquid-grid pivot, ETF deployment failures, the $5 price-floor and return-convention corrections (Addenda J-K), and the Tracker paper book."
 ---
 
 # Domain & Strategy
@@ -66,7 +66,9 @@ Source: README.md Addendum A.
 - Recent-loser (lowest 12-1 momentum tertile)
 - **Triple intersection:** small ∩ high-vol ∩ recent-loser → ~124 names/month, ~62 per side
 
-### Triple-Filter Results (Gross, No Costs)
+### Triple-Filter Results (Gross, No Costs, No Price Floor)
+
+> **These numbers are contaminated by sub-penny bankruptcy shells.** A `-Q` suffix ticker at a $0.30 close has a one-tick spread of ~333 bp; the long/short edge pays the bid-ask bounce entirely away, and a one-cent move is a +4,800% return that inflates the backtest roughly 2×. The corrected, deployable figures are in [Return-Convention and Price-Floor Corrections (Addenda J–K)](#return-convention-and-price-floor-corrections-addenda-jk). Source: README.md Addendum J.
 
 | Stat | Universe 50/50 | Triple 50/50 |
 |---|---:|---:|
@@ -124,7 +126,9 @@ Scripts: `scripts/ibkr_triple_tier_costs.py`. Source: README.md Addendum E–F.
 
 `scripts/backtest_liquid_grid.py` buckets every month-end by tertile on dollar-volume (`dv_60d`), realized volatility (`vol_60d`), and momentum (`mom_12_1`), then builds 50/50 LS inside each cell. Cost drag uses realistic half-spreads: Low-dv: 25 bps, Mid-dv: 8 bps, High-dv: 2.5 bps.
 
-### Tradable Cells (Net > 0 AND t ≥ 2)
+### Tradable Cells (Net > 0 AND t ≥ 2, No Price Floor)
+
+> **Pre-price-floor figures.** The cells below are before the Addendum-J $5 price floor; re-filtered results with the floor are in [Return-Convention and Price-Floor Corrections (Addenda J–K)](#return-convention-and-price-floor-corrections-addenda-jk). The mid-cap high-vol loser "workhorse" cell (Mid-dv × High-vol × Low-mom) recommended here does **not** survive the price-floor re-filter in the since-2020 regime.
 
 | Cell | Names | Net LS | Sharpe | NW t | Half-spread |
 |---|---:|---:|---:|---:|---:|
@@ -170,12 +174,189 @@ Source: README.md Addendum I. Scripts: `scripts/backtest_sse.py`, `scripts/backt
 
 ---
 
+## Return-Convention and Price-Floor Corrections (Addenda J–K)
+
+Two corrections issued in 2026-08 supersede the headline CAGR figures in every
+prior section, including the trash-tier and liquid-grid tables above. Both are
+documented in README.md addenda J (penny-stock contamination) and K (return
+convention) and implemented in the backtest scripts' `--min-price` flag and the
+[`mark_book.py`](workflows.md#tracker-paper-book-scriptsmark_bookpy) daily marker.
+
+The signal itself is **not** refuted — the decile monotonicity, the AUC, and the
+sign and significance of the spread all stand. What changes is the *magnitude*:
+the deployable gross is materially lower, and the trash tier is not obviously a
+viable standalone book once costs are applied.
+
+### J — Penny-Stock Contamination and the $5 Price Floor
+
+Sub-penny bankruptcy shells (`-Q` suffix tickers, e.g. DZSIQ, SPWRQ) sort into the
+small/high-vol/loser cell by construction and contribute +4,800% one-tick
+returns that inflated the published backtest roughly 2×.
+
+**Fix:** Both `scripts/backtest_trash_tier.py` and `scripts/backtest_liquid_grid.py`
+gained a `--min-price` flag; `--min-price 5.0` is the deployable setting (drops
+~7.1% of rows: 453,002 → 421,007), `0` reproduces the old numbers. The [Tracker
+paper book](workflows.md#tracker-paper-book-scriptsmark_bookpy) applies the floor
+(`MIN_PRICE = 5.0`) at selection so the tracked series is the deployable one.
+
+**Winsorizing vs price-flooring — different diagnoses.** Winsorizing at ±100%
+barely moved the result (+23.5% → +21.0%); a $5 floor roughly halved it
+(+23.5% → +12.8%). The driver is a broad population of low-priced names whose
+returns are *real* but untradeable — a **capacity finding**, not a data-cleaning
+one, that compounds the §E/§G cost conclusion rather than replacing it.
+
+### Trash tier (Low-dv × High-vol × Low-mom), full sample 1999–2026
+
+| Variant | Gross CAGR | Sharpe | NW t | Mean names |
+|---|---:|---:|---:|---:|
+| As published (no floor) | +23.5% | 1.04 | 5.04 | 124 |
+| Winsorize returns ±100% | +21.0% | 1.18 | 5.72 | 124 |
+| **Price ≥ $5** | **+12.8%** | **0.76** | **3.71** | **90** |
+| Price ≥ $5 + winsorize | +10.1% | 0.79 | 3.82 | 90 |
+
+Same cell, since 2020: +43.9% → **+26.7%** (Sharpe 1.14, t 2.64) at the $5 floor.
+
+### Liquid grid, price ≥ $5, cells passing net > 0 and t ≥ 2
+
+Full sample (282 months):
+
+| Cell | Names | Gross | Net | Sharpe | t | Half-spread |
+|---|---:|---:|---:|---:|---:|---:|
+| Low × High × Low (trash) | 90 | +12.8% | **+8.9%** | 0.76 | 3.71 | 25 bp |
+| Mid × High × High | 54 | +9.3% | +7.9% | 0.55 | 2.66 | 8 bp |
+| Mid × High × Low | 70 | +8.4% | +7.1% | 0.55 | 2.67 | 8 bp |
+| Low × High (marginal) | 175 | +9.8% | +6.2% | 0.92 | 4.46 | 25 bp |
+| Mid × High (marginal) | 151 | +6.7% | +5.5% | 0.66 | 3.22 | 8 bp |
+| All R1000 | 1,451 | +2.8% | +1.9% | 0.61 | 2.97 | 8 bp |
+
+Since 2020 (63 months):
+
+| Cell | Names | Gross | Net | Sharpe | t | Half-spread |
+|---|---:|---:|---:|---:|---:|---:|
+| Low × High × Low (trash) | 101 | +26.7% | **+22.9%** | 1.14 | 2.64 | 25 bp |
+| High × High × High | 52 | +16.1% | +15.7% | 0.93 | 2.14 | 2.5 bp |
+| Low × High (marginal) | 178 | +14.4% | +10.8% | 1.26 | 2.91 | 25 bp |
+| **High × High (mega-cap, high-vol)** | 126 | +10.8% | **+10.5%** | **1.23** | 2.84 | **2.5 bp** |
+| All R1000 | 1,360 | +3.9% | +2.9% | 0.97 | 2.24 | 8 bp |
+
+**Mid × High × Low — the "workhorse" cell recommended in [§H.2](#liquid-grid-pivot--the-tradable-cell)
+— does not appear in the since-2020 tradable list at all**, consistent with the
+regime finding recorded there. Its place is taken by the **High-dv × High-vol**
+mega-cap cell (+10.5% net, 2.5 bp spread, Sharpe 1.23, deepest capacity), the
+one cell that could clear the author's trading constraints — but it rests on
+only 63 months and did **not** work full-sample, so it is a lead to test, not a
+result.
+
+Source: README.md Addendum J. Scripts: `scripts/backtest_trash_tier.py`,
+`scripts/backtest_liquid_grid.py` (`--min-price 5.0`).
+
+### K — The Return Convention: Mean Log ≠ Portfolio Return
+
+This is the larger of the two corrections. `forward_return` in the predictions
+file is a **20-trading-day LOG return** (verified empirically: median
+`|log(P_t+20/P_t) − forward_return| = 0.00000`). Every LS number this project
+published is therefore a difference of **mean log returns** across names, not an
+equal-weighted portfolio return.
+
+An equal-weighted portfolio earns the mean of **simple** returns. By Jensen,
+`mean(log) < log(1 + mean(simple))`, with the gap ≈ `σ²/2` where σ is the
+*cross-sectional* dispersion of returns within the leg. For a long/short spread
+the short leg is subtracted, so **its dispersion penalty is added to the
+reported spread** — the inflation is largest exactly where dispersion is
+largest (the trash tier, bottom-leg cross-sectional SD ≈ 0.178 per 20-day
+period → σ²/2 ≈ 1.58%/month of phantom return).
+
+### Measured (trash tier, $5 floor, 282 months)
+
+| Convention | Mean/month | CAGR |
+|---|---:|---:|
+| Mean log returns (as published) | +0.892% | **+11.29%** |
+| Simple returns (a portfolio) | +0.425% | **+4.15%** |
+| **Difference** | | **+7.14 pp** |
+
+On the broad R1000 universe the gap shrinks to ~1 pp (+5.10% → +4.12%) because
+cross-sectional dispersion is far lower. The convention inflates concentrated,
+high-dispersion cells and barely touches diversified ones.
+
+A related consequence: with **no price floor** the simple convention produces
+months worse than −100% (shorting a name that 10×'s loses 900%), so the naive
+unhedged decile book is not a computable portfolio at all. The log convention
+bounded that tail and hid it; the $5 floor is what makes the tracked series
+well-defined.
+
+### Stacking the corrections (trash tier, full sample)
+
+| Trash tier, full sample | CAGR |
+|---|---:|
+| As originally published | +28.5% |
+| After the $5 price floor (addendum J) | +12.8% |
+| After portfolio arithmetic (addendum K) | **+4.2%** |
+| Less ~25 bp half-spread turnover drag | **≈ 0%** |
+
+That last line is the honest bottom line for the trash tier as a standalone
+book. The [`mark_book.py`](workflows.md#tracker-paper-book-scriptsmark_bookpy) daily
+marker independently reproduces the +4.15% analytic figure (+4.24% including
+the daily-marking calendar), which is the cross-check that the *implementation*
+is right and the *convention* was the problem.
+
+Source: README.md Addendum K.
+
+---
+
+## Tracker Paper Book
+
+`scripts/mark_book.py` publishes the Pattern CNN long/short book as a daily NAV
+series that the external **Tracker** hub reads. Tracker is read-only — Pattern
+publishes, Tracker consumes; if a Pattern row shows STALE on the hub, the fix
+lives in Pattern's [daily job](workflows.md#daily-publishing-job-scriptsrun_dailysh),
+not in Tracker. Full integration memo: `MEMO-TRACKER-INTEGRATION.md`.
+
+### Two Sleeves
+
+Two sleeves are published because they answer different questions and paper
+tracking is free:
+
+| Sleeve | Cell | Since-2020 net | Why track it |
+|---|---|---:|---|
+| `pattern-trash` | Low-dv × High-vol × Low-mom | +22.9% (t 2.64) | the actual alpha; capacity $500k–$1M, 25bp spreads, hard borrow |
+| `pattern-megacap` | High-dv × High-vol | +10.5% (t 2.84) | 2.5bp spreads, Sharpe 1.23, deepest capacity — the cell that could clear the author's constraints |
+
+Both are 50/50 dollar-neutral long/short inside a cross-sectional cell, marked
+daily but rebalanced on the 20-day cycle (names held fixed within a period so
+intra-period performance is visible). Returns are **gross of costs** per house
+convention; the book needs single-stock shorting, so both are `mode: paper`.
+
+### Honest book arithmetic
+
+The marker deliberately uses real portfolio arithmetic — actual prices, held
+shares, **simple** returns — not the mean-log statistic in the published
+backtests (see [Return-Convention Corrections](#k--the-return-convention-mean-log--portfolio-return)).
+Leg return is `mean_j(P_j(t) / P_j(rebal) − 1)`; `LS(t) = leg_long − leg_short`;
+`NAV(t) = NAV(rebal) × (1 + LS(t))`. Benchmark is **cash**, not the cell's
+equal-weight return: these are dollar-neutral books, so excess against a
+long-only cell is a beta statement, not alpha (`ew_cell` is carried in the file
+as context only).
+
+### Backtest/Paper split
+
+The `track` column in `nav_daily.csv` records `backtest` before `paper_start`
+and `paper` after, and `meta.json` carries `paper_start`. The backtest leg has
+already been revised twice (addenda J and K) and must not quietly become the
+track record — any page rendering this series must keep the two legs
+distinguishable. This is why the daily job publishes a [verify step](workflows.md#daily-publishing-job-scriptsrun_dailysh)
+keyed on proof of the action, not an exit code.
+
+Source: `scripts/mark_book.py`, `README.md` §K.5, `MEMO-TRACKER-INTEGRATION.md`.
+
+---
+
 ## Summary of Key Takeaways
 
-1. **The paper replicates cleanly.** Full R1000 LS: +17.4%, Sharpe 1.22, NW t +7.99 over 1999–2026.
-2. **Alpha concentrates in small, high-vol, recent-loser names.** Triple-filter gross: +28.5%, Sharpe 1.07, ~124 names.
+1. **The paper replicates cleanly.** Full R1000 LS: +17.4%, Sharpe 1.22, NW t +7.99 over 1999–2026 (mean-log convention; see correction 8).
+2. **Alpha concentrates in small, high-vol, recent-loser names.** Triple-filter gross *as originally published*: +28.5%, Sharpe 1.07, ~124 names — **contaminated by sub-penny shells; see correction 8.**
 3. **Alpha is high-turnover.** ~60% monthly rotation per side. It's an intra-month reversal exploit.
 4. **Simple regime overlays don't help.** 2018 is a squeeze event, not a regime feature.
 5. **Costs are the binding constraint for the trash tier.** Capacity ~$500k–$1M per side.
-6. **The liquid-grid pivot finds tradable cells.** Mid-dv × High-vol × Low-mom: +13% net, 8 bps spread, deep capacity.
+6. **The liquid-grid pivot finds tradable cells.** Pre-floor workhorse: Mid-dv × High-vol × Low-mom, +13% net, 8 bps spread, deep capacity. After the $5 floor the since-2020 tradable lead shifts to High-dv × High-vol (mega-cap, +10.5% net, 2.5 bp).
 7. **ETF deployment doesn't work.** The signal is single-stock idiosyncratic; ETFs average it away or invert it.
+8. **Two corrections halve the headline (Addenda J–K).** A $5 price floor (J) cuts the trash tier +23.5% → +12.8%; portfolio arithmetic (K) cuts it further to **+4.2% gross**, and ~25 bp half-spread turnover drag leaves it **≈ 0% net**. The signal stays real (NW t 2.6–3.8 across every filtered variant); the magnitude was about double, and the trash tier is not obviously a standalone book. See [Return-Convention and Price-Floor Corrections](#return-convention-and-price-floor-corrections-addenda-jk) and the [Tracker paper book](#tracker-paper-book).

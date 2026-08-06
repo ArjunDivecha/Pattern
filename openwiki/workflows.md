@@ -1,12 +1,12 @@
 ---
 type: "Reference"
 title: "Workflows"
-description: "End-to-end workflows for the Pattern pipeline: Bloomberg data building, debug and production training, multi-GPU orchestration, backtesting, live scoring, and pathway merging."
+description: "End-to-end workflows for the Pattern pipeline: Bloomberg data building, debug and production training, multi-GPU orchestration, backtesting, live scoring, price splice, Tracker paper book, and daily publishing job."
 ---
 
 # Workflows
 
-This page covers the end-to-end workflows: data building, training (debug and production), multi-GPU orchestration, backtesting, live scoring, and pathway merging.
+This page covers the end-to-end workflows: data building, training (debug and production), multi-GPU orchestration, backtesting, live scoring, pathway merging, and the daily publishing job that feeds the Tracker paper book.
 
 ---
 
@@ -146,13 +146,28 @@ See [Domain & Strategy](domain.md) for the research findings from these scripts.
 
 ### Batch Live Scoring (`scripts/score_live.py`)
 
-Scores the tail of trading days (no forward return available yet) using the most recent expanding-window checkpoint (w26, trained on 1996–2024).
+Scores the tail of trading days (no forward return available yet) using the most recent expanding-window checkpoint (**w27**, trained on 1996–2025; default `--src-run runs/expanding/20260419_174908_cdef6809`). Pixel stats reuse the pre-existing cache rows as a reference so normalization matches the labeled pathway.
 
 ```bash
 python scripts/score_live.py \
     --data-csv data/etf_ohlcv.csv \
     --out-parquet runs/etf_expanding/live_predictions.parquet
 ```
+
+**Tradeable-universe guard.** When `--tickers-csv` points at
+`data/r1000_tradeable_universe.csv` (the staleness manifest written by
+[`splice_daily_update.py`](#price-splice-scriptssplice_daily_updatepy)), `score_live.py`
+drops names with `tradeable=False` before scoring — a stale price silently
+poisons `dv_60d`/`vol_60d`/`mom_12_1` and can put a name in the wrong tertile. In
+the [daily job](#daily-publishing-job-scriptsrun_dailysh) it is invoked with
+`--tail-days 160 --cadence monthly --device mps` against the spliced panel.
+
+**Rebalance guard.** `score_live.py` emits the current day as the canonical
+"month-end" of the running month. Left unhandled, the [book marker](#tracker-paper-book-scriptsmark_bookpy)
+would treat every run day as a rebalance (daily turnover on a monthly
+strategy); `mark_book.py` therefore drops prediction dates falling in the latest
+incomplete calendar month so the book set at the last completed month-end is
+held through the current one.
 
 ### Expanding-Window Scoring (`scripts/score_with_expanding.py`)
 
@@ -201,4 +216,190 @@ Re-scores saved ensembles over any date range. Loads all 5 state_dicts, stacks e
 Connects to Interactive Brokers TWS/Gateway via `ib_insync` to pull live bid/ask, short-availability, and 30-day historical spread data for the triple-tier-filter universe. Re-prices the monthly portfolios with observed IBKR spreads instead of the Corwin-Schultz proxy.
 
 **Prerequisites:** TWS or IB Gateway running, API enabled, `ib_insync` installed. Requires a Python 3.14 compatibility shim for `ib_insync` event-loop autocreate.
-patibility shim for `ib_insync` event-loop autocreate.
+
+```bash
+python scripts/ibkr_triple_tier_costs.py \
+    --predictions runs/expanding/20260419_174908_cdef6809/predictions_monthly.parquet \
+    --ohlcv       data/r1000_ohlcv_database.parquet \
+    --out-dir     runs/expanding/20260419_174908_cdef6809/ibkr_costs \
+    --ib-host 127.0.0.1 --ib-port 7496 --ib-client-id 42 \
+    --aum-per-side 5e6 --min-adv 5e6 --adv-cap 0.10 --c-impact 1.5
+```
+
+---
+
+## Price Splice (`scripts/splice_daily_update.py`)
+
+Extends the Bloomberg OHLCV panel forward with yfinance so the pipeline refreshes
+daily without a Bloomberg pull. Bloomberg remains the history of record and is
+opened **read-only** (never rewritten); yfinance supplies only dates *after* the
+Bloomberg panel ends.
+
+**The one thing that matters — `AdjClose` is chained, not appended.** The two
+`AdjClose` columns are not on the same scale: Bloomberg's total-return index
+accumulates dividends forward from 1996; yfinance's Adj Close is back-adjusted
+from today (measured level ratios on 2026-04-17: AAPL 1.19, MSFT 1.64, JNJ 2.10).
+Concatenating them would inject a fake 20–110% one-day return at the seam, so
+`AdjClose[t] = AdjClose_bbg[splice] × Π(1 + yf_adj_return)` for `t > splice`. Raw
+Open/High/Low/Close/Volume are appended directly — verified to match Bloomberg
+exactly (return correlation 1.000000 on 198/198 sampled tickers).
+
+**Safety guards enforced here:**
+- Only tickers whose Bloomberg history reaches the panel's last date (within
+  `--max-gap-days`) are extended — a name that went dark in 2005 is **not**
+  resurrected, since its ticker may since have been reassigned to another
+  company.
+- Every extended ticker is validated on an overlap window before acceptance;
+  failures (e.g. APTV, BDX, both real spinoffs with overlap corr 0.67/0.99) are
+  quarantined and reported, never silently spliced.
+- Output is written atomically (temp file then rename).
+- A ticker that fails to extend keeps its Bloomberg history and goes STALE.
+
+**Staleness manifest.** Every run writes
+`data/r1000_tradeable_universe.csv` (`Ticker, yf_ticker, last_date, stale_days,
+tradeable`). Daily scoring (and the [Tracker marker](#tracker-paper-book-scriptsmark_bookpy))
+must drop `tradeable=False` names because a stale price silently poisons
+`dv_60d`/`vol_60d`/`mom_12_1` and can put a name in the wrong tertile. Known
+free-source holes (2026-08-04): 33 of 1,371 names (2.4%) do not extend — BK, CTRA
+and VSCO hard-404 on Yahoo despite being live liquid companies; others return
+fragmentary history.
+
+**Outputs:** `data/r1000_ohlcv_spliced.{parquet,csv}` (Bloomberg + yfinance,
+same schema, written with `--csv`), `data/r1000_tradeable_universe.csv`, and a
+per-run report under `runs/splice/<TIMESTAMP>/` (`splice_report.xlsx`,
+`splice_summary.json`, `splice.log`).
+
+```bash
+python scripts/splice_daily_update.py --csv     # daily refresh
+```
+
+**Index membership cadence:** refresh from Bloomberg once a year, right after
+the June reconstitution. Deletions self-resolve (dead names stop returning
+yfinance data, go stale, drop out); additions are the only real gap (~150–200
+names/yr enter the R1000) but a new entrant is not scoreable for ~13 months
+anyway (20 days for the image + 273 days for `mom_12_1`). Caveat: tertile
+boundaries drift as the universe ages — one year (~15% turnover) is tolerable,
+two or more degrades the buckets; the trash tier is most sensitive because it
+lives at the R1000/R2000 boundary where churn is highest.
+
+Source: README.md §J.6.
+
+---
+
+## Tracker Paper Book (`scripts/mark_book.py`)
+
+Builds and marks the Pattern CNN long/short book so the external **Tracker** hub
+can read a daily NAV. Tracker is read-only and never runs this — Pattern
+publishes, Tracker consumes. Two sleeves are published; both are 50/50
+dollar-neutral long/short inside a cross-sectional cell, marked daily but
+rebalanced on the 20-day cycle:
+
+| Sleeve | Cell | Names | Spread | Capacity |
+|---|---|---|---|---|
+| `pattern-trash` | Low-dv × High-vol × Low-mom | ~90–125 | ~25 bp half-spread, hard borrow | $500k–$1M/side |
+| `pattern-megacap` | High-dv × High-vol | ~126–147 | ~2.5 bp half-spread, easy borrow | deepest |
+
+See [Domain — Tracker Paper Book](domain.md#tracker-paper-book) for the sleeve
+rationale, and [Domain — Return-Convention Corrections](domain.md#return-convention-and-price-floor-corrections-addenda-jk)
+for why this marker uses real portfolio arithmetic (simple returns, held
+shares) instead of the mean-log statistic in the published backtests.
+
+**Mechanic.** At each rebalance date the cell is selected, ranked by `p_up_mean`,
+split 50/50 long/short, each leg equal-weighted; those names are held fixed
+until the next rebalance and marked every day. Leg return is measured from the
+rebalance close on an AdjClose (total-return) basis. A **$5 price floor**
+(`MIN_PRICE = 5.0`) is applied at selection so the tracked book is the
+deployable one, not the sub-penny-contaminated one ([README §J](domain.md#return-convention-and-price-floor-corrections-addenda-jk)).
+The price floor is applied **before** bucketing (same order as
+`backtest_liquid_grid.py --min-price`); filtering after bucketing would leave a
+different, smaller cell than the backtest reports.
+
+**Backtest/paper split.** Everything up to the last backtest date is `backtest`
+and everything after is `paper`, recorded in a `track` column; `meta.json`
+carries `paper_start`. The backtest leg has already been revised twice (README
+addenda J and K) and must not quietly become the track record.
+
+**Outputs (one directory per sleeve, under `data/tracker/<sleeve>/`):**
+- `nav_daily.csv` — `date, nav, ew_cell, leg_long, leg_short, n_long, n_short, track`. Column shape matches what FDT publishes, so the sleeve drops into Tracker's `STRATEGY_PERF` with no template change.
+- `holdings_latest.csv` — `ticker, side, weight, p_up_mean, entry_date, px_entry, px_last, ret_since_entry`.
+- `meta.json` — `as_of, paper_start, n_positions, n_long, n_short, nav, cagr_pct, sharpe, since_2020, since_2015, flags, generated`. The `flags` list records that returns are gross of costs, that NAV is an index not dollars, that the book requires single-stock shorting, that the $5 floor is applied, and that the backtest leg before `paper_start` is not a track record.
+- `sleeves.json` — index at `data/tracker/` summarizing both sleeves.
+
+```bash
+python3 scripts/mark_book.py                      # both sleeves, full history
+python3 scripts/mark_book.py --sleeve pattern-trash
+python3 scripts/mark_book.py --start 2020-01-01   # shorter backfill
+```
+
+**Inputs:** `data/r1000_ohlcv_spliced.parquet` (from the [splice](#price-splice-scriptssplice_daily_updatepy)),
+`data/r1000_tradeable_universe.csv` (stale names dropped),
+`runs/expanding/20260419_174908_cdef6809/predictions_monthly.parquet` (backtest
+leg, through 2026-03-19), and `runs/live/live_predictions.parquet` (paper leg,
+w27 ensemble applied to recent month-ends from `score_live.py`).
+
+**Registered in Tracker.** `pattern-trash` and `pattern-megacap`, both
+`mode: paper`, `cadence: daily`, `track: true`, read by
+`collect_pattern_sleeve` in Tracker's `scripts/adapters.py`; perf packs build
+via `build_perf_report.py --strategy pattern-trash`. Not yet wired: a holdings
+page needing a `(list[HoldingRow], BookCharacteristics)` loader — the book
+itself is published to `holdings_latest.csv` and the hub row carries the
+position count. See `MEMO-TRACKER-INTEGRATION.md` for the integration contract.
+
+---
+
+## Daily Publishing Job (`scripts/run_daily.sh`)
+
+The Pattern daily job. Publishes the artifacts Tracker reads — Tracker is
+read-only and never runs this. Scheduled **13:20 PT on weekdays** via the
+launchd plist `scripts/com.arjundivecha.pattern-daily.plist` (install with
+`cp scripts/com.arjundivecha.pattern-daily.plist ~/Library/LaunchAgents/ &&
+launchctl load ~/Library/LaunchAgents/com.arjundivecha.pattern-daily.plist`),
+after the 13:00 PT US close so yfinance carries same-day closes and ~25 min
+before Tracker's 13:45 PT consolidation. The job takes roughly 8–12 minutes,
+dominated by image rendering in `score_live`. Registered with the NightWatch
+Overseer as `pattern-daily`, so a missed or broken run alerts instead of going
+silent.
+
+```bash
+zsh scripts/run_daily.sh      # splice -> score -> mark -> verify (~10 min)
+```
+
+<!-- openwiki: mermaid parse failed and this diagram was converted to a text fence so it does not break rendering. Fix the diagram source and restore the mermaid fence. Parser error: Heuristic: an unescaped angle bracket inside a label breaks rendering; rephrase the label. -->
+```text
+flowchart TD
+    A["launchd 13:20 PT<br/>com.arjundivecha.pattern-daily"] --> B["1. splice prices<br/>splice_daily_update.py --csv"]
+    B --> C["2. score live<br/>score_live.py w27 ensemble<br/>tradeable names only"]
+    C --> D["3. mark book<br/>mark_book.py both sleeves<br/>publish data/tracker/*"]
+    D --> E{"4. verify<br/>meta.as_of == panel last date<br/>for both sleeves?"}
+    E -- both current --> F["PATTERN DAILY OK<br/>Overseer keys on this marker"]
+    E -- any stale/missing --> G["VERIFY FAILED<br/>exit 1 even if steps 1-3 ok"]
+```
+
+**Four steps:**
+1. `splice_daily_update.py --csv` — extend the Bloomberg panel with yfinance ([Price Splice](#price-splice-scriptssplice_daily_updatepy)).
+2. `score_live.py` — w27 ensemble → today's `p_up`, tradeable names only ([Batch Live Scoring](#batch-live-scoring-scriptsscore_livepy)), invoked with `--data-csv data/r1000_ohlcv_spliced.csv --cache-dir cache/r1000_I20_monthly --tickers-csv data/r1000_tradeable_universe.csv --out-parquet runs/live/live_predictions.parquet --tail-days 160 --cadence monthly --device mps`.
+3. `mark_book.py --start 1999-01-01` — build/mark both sleeves, publish ([Tracker Paper Book](#tracker-paper-book-scriptsmark_bookpy)).
+4. **verify** — refuses to report success on stale artifacts.
+
+**Why step 4 exists.** Steps 1–3 can each `exit 0` while republishing
+yesterday's numbers — e.g. yfinance returns nothing, the splice adds no rows,
+and `mark_book` happily re-marks the stale panel. The verify step compares
+each sleeve's `meta.json` `as_of` against the spliced panel's own last date and
+prints the success marker **`PATTERN DAILY OK`** only when both match, so the
+Overseer keys on proof of the *action* rather than an exit code. A sleeve whose
+`as_of` lags the panel (or whose `meta.json` is missing) fails verify with
+`VERIFY FAILED` and a non-zero exit.
+
+**launchd-safe execution.** `run_daily.sh` is rewritten for launchd: `#!/bin/zsh`,
+explicit `PATH` (launchd supplies almost no environment), absolute interpreter
+path (`/opt/homebrew/bin/python3`), `set -uo pipefail`, and `exec > >(tee -a
+"$LOG") 2>&1` so the full run logs to `logs/daily/YYYY-MM-DD.log` (which the
+Overseer reads). Working directory is the Pattern repo root.
+
+**Outputs Tracker reads:** `data/tracker/{pattern-trash,pattern-megacap}/`
+(`nav_daily.csv`, `holdings_latest.csv`, `meta.json`), `runs/live/live_predictions.parquet`,
+and `logs/daily/YYYY-MM-DD.log`. The full output tree is documented in
+[Operations — Run Directory Layout](operations.md#run-directory-layout).
+
+Source: `scripts/run_daily.sh`, `scripts/com.arjundivecha.pattern-daily.plist`,
+README.md §K.5, `MEMO-TRACKER-INTEGRATION.md`.

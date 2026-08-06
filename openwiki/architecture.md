@@ -49,7 +49,7 @@ All behavior is driven by a Pydantic `Config` model loaded from YAML via `Config
 
 ## Data Layer
 
-> **Source gap:** The `pattern/data/` package (`loader.py`, `splits.py`) is imported across the codebase but is **not present in the repository** (not tracked by git, not gitignored, not present anywhere on disk). `import pattern.data.loader` raises `ModuleNotFoundError`. The functions below are the documented intended API inferred from the import sites (`pattern/cli.py`, `pattern/imaging/cache.py`, `pattern/train/dataset.py`, `webapp/scorer.py`, scripts, and tests) and their docstrings; they are not verifiable against source because the files are missing. Until `pattern/data/` is added, the CLI pipeline, tests, and webapp cannot run. See [Testing](testing.md) and [Operations](operations.md#webapp-deployment) for the runtime consequences.
+> **Source gap:** The `pattern/data/` package (`loader.py`, `splits.py`) is imported across the codebase but is **not present in the repository** (not tracked by git, not gitignored, not present anywhere on disk). `import pattern.data.loader` raises `ModuleNotFoundError`. The functions below are the documented intended API inferred from the import sites (`pattern/cli.py`, `pattern/imaging/cache.py`, `pattern/train/dataset.py`, `webapp/scorer.py`, `scripts/score_live.py`, and tests) and their docstrings; they are not verifiable against source because the files are missing. Until `pattern/data/` is added, the CLI pipeline, tests, the webapp, and the [daily job](workflows.md#daily-publishing-job-scriptsrun_dailysh)'s scoring step cannot run. See [Testing](testing.md) and [Operations](operations.md#webapp-deployment) for the runtime consequences.
 
 ### Loader (`pattern/data/loader.py`)
 
@@ -166,6 +166,18 @@ Parametric CNN builder supporting I5/I20/I60 via config:
 - `newey_west_variance(x, lags)` — HAC (Bartlett-kernel) variance estimator for overlapping observations.
 - `summarize_series(returns, holding_period_days, nw_lags)` — Annualized mean, volatility, Sharpe, NW t-stat, max drawdown (on non-overlapping sub-sample).
 - `compute_turnover(pred_df, n_deciles, score_col)` — Jegadeesh-Titman-style symmetric-difference turnover per formation day.
+
+**Return convention (important).** `forward_return` in the predictions files is
+a **20-trading-day LOG return** (verified empirically: median
+`|log(P_t+20/P_t) − forward_return| = 0.00000`). The decile/long-short series in
+`report.md` are therefore differences of **mean log returns** across names, not
+equal-weighted portfolio returns — a reporting artifact that inflates
+concentrated, high-dispersion cells. The [Tracker paper book](domain.md#tracker-paper-book)
+(`scripts/mark_book.py`) re-computes the series with real portfolio arithmetic
+(simple returns, held shares) and is the deployable figure. See
+[Domain — Return-Convention Corrections](domain.md#return-convention-and-price-floor-corrections-addenda-jk)
+for the magnitude and why the $5 price floor is what makes the simple-return
+series well-defined.
 
 ### Report (`pattern/backtest/report.py`)
 

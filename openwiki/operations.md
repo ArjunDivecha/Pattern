@@ -1,7 +1,7 @@
 ---
 type: "Reference"
 title: "Operations"
-description: "Operational reference for the Pattern pipeline: YAML configs, run directory layout, image cache, hardware setup, webapp deployment, data files, and reproducibility."
+description: "Operational reference for the Pattern pipeline: YAML configs, run directory layout, image cache, hardware setup, daily publishing job, webapp deployment, data files, and reproducibility."
 ---
 
 # Operations
@@ -77,6 +77,7 @@ Each run writes to `runs/<pathway>/<timestamp>_<config_hash>/`:
 |---|---|---|
 | Remote training node | 8× NVIDIA A100-80GB | `/data/Pattern/` |
 | Local development | M4 Max, 128 GB RAM, MPS | repo root |
+| Daily publishing host | local Mac (`mps` device) | repo root — launchd `com.arjundivecha.pattern-daily`, weekdays 13:20 PT |
 
 **Compute budget (expanding pathway, actual):**
 - 28 windows × 5 ensembles = 140 networks
@@ -128,13 +129,42 @@ cd webapp && uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ---
 
+## Daily Publishing Job
+
+The daily job publishes the Tracker paper book. See
+[Workflows — Daily Publishing Job](workflows.md#daily-publishing-job-scriptsrun_dailysh)
+for the four-step pipeline (splice → score → mark → verify), the launchd
+scheduling, and the verify step's refusal to report success on stale artifacts.
+
+Scheduling: launchd plist `scripts/com.arjundivecha.pattern-daily.plist`,
+weekdays 13:20 PT. Runs on the local Mac (MPS device), takes ~8–12 minutes.
+Install/uninstall:
+
+```bash
+cp scripts/com.arjundivecha.pattern-daily.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.arjundivecha.pattern-daily.plist
+# uninstall:
+launchctl unload ~/Library/LaunchAgents/com.arjundivecha.pattern-daily.plist
+```
+
+Logs: `logs/daily/YYYY-MM-DD.log` (full run log; the Overseer reads this) plus
+`logs/daily/launchd_{stdout,stderr}.log`. Tracker reads
+`data/tracker/{pattern-trash,pattern-megacap}/` — see
+[Workflows — Tracker Paper Book](workflows.md#tracker-paper-book-scriptsmark_bookpy).
+
+---
+
 ## Data Files
 
 | File | Description |
 |---|---|
 | `data/r1000_ohlcv_database.csv` | Main R1000 OHLCV + AdjClose + Return + MarketCap (pipeline input) |
 | `data/r1000_ohlcv_database.parquet` | Same, Parquet format (for analysis scripts) |
+| `data/r1000_ohlcv_spliced.{parquet,csv}` | Bloomberg history + yfinance forward extension, same schema — built by `scripts/splice_daily_update.py --csv`; the spliced panel is what the [daily job](workflows.md#daily-publishing-job-scriptsrun_dailysh) scores |
+| `data/r1000_tradeable_universe.csv` | Staleness manifest (`Ticker, yf_ticker, last_date, stale_days, tradeable`) — daily scoring and `mark_book.py` must drop `tradeable=False` names |
 | `data/r1000_classifications.{xlsx,parquet}` | GICS + BICS classifications for R1000 tickers |
+| `data/tracker/{pattern-trash,pattern-megacap}/` | Tracker paper book per sleeve: `nav_daily.csv`, `holdings_latest.csv`, `meta.json` — what Tracker reads (see [Workflows — Tracker Paper Book](workflows.md#tracker-paper-book-scriptsmark_bookpy)) |
+| `data/tracker/sleeves.json` | Index summarizing both sleeves |
 | `AssetList.xlsx` | 34-country ETF universe |
 | `AssetList_liquid_etfs.xlsx` | 477 liquid ETF universe |
 | `Industry28.xlsx` | 28-industry classification |
