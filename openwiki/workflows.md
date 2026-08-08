@@ -364,16 +364,17 @@ silent.
 zsh scripts/run_daily.sh      # splice -> score -> mark -> verify (~10 min)
 ```
 
-<!-- openwiki: mermaid parse failed and this diagram was converted to a text fence so it does not break rendering. Fix the diagram source and restore the mermaid fence. Parser error: Heuristic: an unescaped angle bracket inside a label breaks rendering; rephrase the label. -->
-```text
+```mermaid
 flowchart TD
-    A["launchd 13:20 PT<br/>com.arjundivecha.pattern-daily"] --> B["1. splice prices<br/>splice_daily_update.py --csv"]
-    B --> C["2. score live<br/>score_live.py w27 ensemble<br/>tradeable names only"]
-    C --> D["3. mark book<br/>mark_book.py both sleeves<br/>publish data/tracker/*"]
-    D --> E{"4. verify<br/>meta.as_of == panel last date<br/>for both sleeves?"}
-    E -- both current --> F["PATTERN DAILY OK<br/>Overseer keys on this marker"]
-    E -- any stale/missing --> G["VERIFY FAILED<br/>exit 1 even if steps 1-3 ok"]
+    A["launchd 13:20 PT — com.arjundivecha.pattern-daily"] --> B["1. splice prices — splice_daily_update.py --csv"]
+    B --> C["2. score live — score_live.py w27 ensemble, tradeable names only"]
+    C --> D["3. mark book — mark_book.py both sleeves, publish data/tracker"]
+    D --> E{"4. verify: meta.as_of equals panel last date for both sleeves?"}
+    E -- both current --> F["PATTERN DAILY OK — Overseer keys on this marker"]
+    E -- any stale or missing --> G["VERIFY FAILED — exit 1 even if steps 1-3 ok"]
 ```
+
+*Daily publishing job: splice → score → mark → verify, with a verify gate that refuses to report success on stale artifacts.*
 
 **Four steps:**
 1. `splice_daily_update.py --csv` — extend the Bloomberg panel with yfinance ([Price Splice](#price-splice-scriptssplice_daily_updatepy)).
