@@ -1862,3 +1862,108 @@ PREREGISTRATION.md §2 deliberately forbids re-tuning the strawman mid-flight, s
 the frozen benchmark stands for Stage 2; but the honest reading is that the real
 hurdle for any retrained CNN is higher than +2.40%/yr, and geometry belongs in
 the baseline family alongside WSTR when the strawman is next re-frozen.
+
+## L.9  Stage 2 — the pre-registered label bake-off: NO PROMOTION
+
+Run under PREREGISTRATION.md, committed before the data was touched again.
+Platform: xgboost on 21 features covering the same information as the CNN's
+20-day image (price path, daily ranges, close location, volume texture, MA
+relationship), on the CNN's exact expanding-window schedule. Purge audited at
+40 trading days — the production bound — in every window.
+
+Early stopping on **validation IC** for all labels, implementing the Stage-0
+finding that the production CNN selects on cross-entropy, which is not the
+objective.
+
+### §6 noise floor, measured first
+
+Five seeds, identical config, decile LS CAGR 2005+:
+
+| Label | Mean | SD |
+|---|---:|---:|
+| L0 (control) | +3.76% | **1.42** |
+| L1 | +4.76% | 1.14 |
+| L2 | +6.00% | 1.22 |
+| L3 | +7.46% | 1.72 |
+
+**Floor = 1.42pp; §6 requires ≥ 2.83pp to count.**
+
+### §5 evaluation — 2005+ (n=219), neutralized ensembles, net @8bp
+
+| Signal | Net | Sharpe | t | Alpha vs strawman | alpha t | §5 |
+|---|---:|---:|---:|---:|---:|---|
+| L0_neut (production label) | +1.75% | 0.485 | 2.17 | +3.82% | 2.22 | no |
+| L1_neut | +2.98% | 0.618 | 2.80 | +6.19% | **3.85** | **PASS** |
+| L2_neut | +2.98% | 0.587 | 2.55 | +5.86% | 3.12 | **PASS** |
+| L3_neut | +3.29% | 0.582 | 2.44 | +5.84% | 2.65 | **PASS** |
+
+Three candidates satisfy §5's letter. Two things stop that being a result.
+
+### It fails §6: no label beats the control
+
+Best case is L3_neut − L0_neut = **+1.54pp**, against a floor of 1.27–2.83pp
+depending on how much ensembling reduces seed noise. **No label-vs-label
+difference is distinguishable from seed noise.** The label question is
+unresolved, not answered.
+
+Note also that L0 — *the current production label* — already beats the strawman
+(alpha t 2.22), and beats the CNN's own neutralized signal (alpha t 1.25, §L.7)
+on the same label. Whatever the GBDT gained, it did not come from the label.
+
+### And roughly half of it is bid-ask bounce
+
+The implementation-lag test from §L.8 — not pre-registered, added after vetting
+the external geometry result, and strictly *more* stringent than §5 — applied to
+our own work:
+
+| Signal | IC enter *t* | IC enter *t+1* | Retained |
+|---|---:|---:|---:|
+| L0_neut | 0.0182 (t 4.25) | 0.0094 (t 2.32) | 51.7% |
+| L1_neut | 0.0219 (t 6.12) | 0.0133 (t 3.81) | 60.8% |
+| L3_neut | 0.0183 (t 4.72) | 0.0090 (t 2.29) | 48.9% |
+| *(reference)* `p_up_resid` | 0.0080 (t 2.76) | 0.0063 (t 2.10) | *79.0%* |
+
+Half the edge dies from one day's delay. As a portfolio, L3_neut goes from
++4.80% (t 2.37) to **+1.85% (t 1.14)**.
+
+That is unsurprising in hindsight: the feature set includes `clv_last` — the
+same close-location construction as `rlcc` — and `r_lag1`. Re-running without
+those and `gap_last`:
+
+| Signal | Enter *t* | Enter *t+1* | Retained |
+|---|---|---|---:|
+| L0_neut | +2.86% (t 1.87) | +1.89% (t 1.36) | 64.7% |
+| L3_neut | +2.16% (t 1.10) | +0.90% (t 0.62) | 72.3% |
+
+Retention improves, confirming those were the bounce channel — but the returns
+fall below the strawman, lose significance entirely, and **L3 becomes worse than
+L0**, reversing the ordering. The apparent label effect was better exploitation
+of microstructure, not better forecasting.
+
+### Verdict
+
+**No promotion.** Per §5's pre-committed rule, Stage 2 stops here. The lockbox
+(§8) remains sealed and unspent — there is no winner to spend it on.
+
+Recorded as amendments A1 and A2 in PREREGISTRATION.md.
+
+### What was actually learned
+
+1. **The label was not the problem.** The Stage-1 diagnosis — that the binary
+   sign label trains a Sharpe-ranker (forward-vol IC 0.097, t 19.1) — is
+   correct and remains the best explanation of the CNN's factor tilts. But
+   *fixing* it does not recover tradable content. Diagnosing a defect and being
+   able to profit from repairing it are different things, and this is the
+   distinction the protocol was built to enforce.
+2. **The image representation is not earning its keep.** A GBDT on 21 hand
+   features beats the CNN on the identical label (alpha t 2.22 vs 1.25). By the
+   asymmetry noted in the script's header, that is strong evidence the CNN's
+   vision machinery is unnecessary here.
+3. **The CNN residual remains the most implementation-robust signal found**
+   (79% retained vs 49–61% for the GBDT). It is small and it does not clear the
+   post-2005 bar — but alone among everything tested, it is not primarily a
+   microstructure artefact.
+4. **Most short-horizon cross-sectional "alpha" on this panel is bid-ask
+   bounce.** It shows up in `rlcc_or` (39% retained), WSTR (55%), and now our
+   own GBDT (49–61%). Any future work on this panel should treat the
+   implementation-lag test as mandatory, not optional.

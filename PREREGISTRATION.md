@@ -180,5 +180,49 @@ documented verdict. That is a satisfactory result.
 
 ## Amendments
 
-*(none yet — noise floor from §6 to be recorded here before any candidate
-comparison is interpreted)*
+### A1 — 2026-08-09 — Noise floor recorded (§6), before any comparison interpreted
+
+Five seeds of the identical GBDT configuration, decile LS CAGR over the primary
+2005+ window:
+
+| Label | Per-seed CAGRs (2005+) | Mean | SD |
+|---|---|---:|---:|
+| L0 (control) | 5.42, 1.93, 3.04, 3.50, 4.91 | +3.76% | **1.42** |
+| L1 | 5.03, 5.56, 5.96, 3.14, 4.11 | +4.76% | 1.14 |
+| L2 | 6.23, 6.40, 6.47, 3.89, 7.01 | +6.00% | 1.22 |
+| L3 | 9.35, 5.85, 9.16, 5.85, 7.11 | +7.46% | 1.72 |
+
+**Noise floor = 1.42pp (L0 seed SD). Per §6, nothing below 2× = 2.83pp counts
+as a finding.**
+
+Note the floor is measured on single seeds; a 5-seed ensemble has lower
+variance, bounded below by 1.42/√5 = 0.63pp if seed errors were independent —
+which they are not, since all seeds share data, features and splits. The true
+ensemble floor lies between 0.63 and 1.42pp, and is not separately measurable
+without many more ensembles. Both bounds are reported wherever the distinction
+changes a conclusion.
+
+### A2 — 2026-08-09 — Stage 2 outcome: NO PROMOTION
+
+Recorded per §5's pre-committed stopping rule. Full detail in README addendum
+L.9. Summary:
+
+- On the standard evaluation (enter at formation close), several candidates
+  satisfy §5's letter: L1_neut (alpha t 3.85), L2_neut (3.12), L3_neut (2.65),
+  L3_ens (2.29), L1_ens (2.12).
+- **But no label-vs-label difference clears the §6 noise floor.** Best case
+  L3_neut − L0_neut = +1.54pp net, against a floor of 1.27–2.83pp. The label
+  question is therefore *unresolved*, not answered affirmatively.
+- An implementation-lag test (not pre-registered; added after README L.8, and
+  strictly *more* stringent than §5) shows 39–51% of the GBDT's edge dies from
+  a single day's entry delay. Re-running without same-bar microstructure
+  features (`clv_last`, `r_lag1`, `gap_last`) leaves L0 at +2.86% (t 1.87) and
+  L3 at +2.16% (t 1.10) — below the strawman, insignificant, and with L3 now
+  *worse* than L0.
+
+**Verdict: no candidate is promoted to a full-panel CNN retrain.** The
+apparent label effect was better exploitation of bid-ask bounce, not better
+forecasting.
+
+The lockbox (§8) remains **sealed and unspent** — there is no winner to spend
+it on.
