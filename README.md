@@ -1335,3 +1335,134 @@ position count.
 - `runs/live/live_predictions.parquet` — latest `p_up`
 - `data/tracker/{pattern-trash,pattern-megacap}/` — what Tracker reads
 - `logs/daily/YYYY-MM-DD.log`
+
+---
+
+# Addendum L — Stage 0/1 of the kill-or-confirm review (2026-08)
+
+Rather than reflexively tuning the paper's hyperparameters, the project stepped
+back to ask two questions that had never been asked: **is the out-of-sample
+machinery actually sound**, and **does the CNN know anything a free signal
+doesn't?** Answers: yes, and — as deployed — no.
+
+## L.1  The leakage guard is sound (Gate G0: PASS)
+
+`tests/test_splits.py` only ever exercised `debug_split` at the **default
+`purge_days=0`**, on a single-ticker monthly fixture, asserting naive set
+non-overlap. The purge that underwrites every published number — all of it
+produced by `expanding`/`rolling` — was untested.
+
+`tests/test_purge_guard.py` now freezes it. The invariant, derived rather than
+assumed: a sample at `t` carries an image over `[t-window+1, t]` and a label
+over `(t, t+horizon]`, so a train sample at `t` and a later sample at `v`
+require `v - t ≥ window + horizon = 40` trading days, else the training label
+period physically overlaps the evaluation image.
+
+| `purge_days` | train→val and val→test gap, all three modes |
+|---|---|
+| **39 (production)** | **exactly 40 trading days** — the tight bound |
+| 0 | 1 trading day |
+
+**No leakage exists.** The out-of-sample claim was always sound; the problem
+was the return arithmetic (addendum K), never look-ahead.
+
+Related fix: `.gitignore` carried a bare `data/`, which matches a directory at
+*any* depth and so excluded the source package `pattern/data/` — including
+`splits.py` and `loader.py` — from every commit since the first. The two most
+correctness-critical modules in the repo had never been under version control.
+That is also how the April 2026 "relative label" experiment was lost: its code
+was untracked, later overwritten, unrecoverable.
+
+## L.2  One measuring stick
+
+`scripts/evaluate_signal.py` scores **any** ranking signal identically:
+portfolio (simple-return) arithmetic as the headline, the mean-log number kept
+only as a labelled cross-reference, `$5` floor, deciles + 50/50, NW t,
+turnover, sub-periods. Validated against four independently-derived pins before
+use (log/unfloored decile +16.26%, simple/floored +1.57%, legs 12.09/10.76/8.92,
+trash-cell 50/50 +4.15%).
+
+It also reports a `computable` flag instead of a misleading number: the
+unfloored simple-return decile book **has no defined CAGR** — months fall below
+−100% — and the unfloored bottom decile compounds at **+92.5%/yr**, which is the
+penny-shell blowup that makes shorting it catastrophic, now quantified.
+
+## L.3  The baseline gauntlet (Gate G1)
+
+The paper names weekly reversal (WSTR) and TREND as its closest competitors,
+yet no simple-signal comparison had ever been run on R1000 — every backtest in
+this repo ranks by `p_up` and uses momentum/vol only to define buckets.
+
+**Predictive IC** (Spearman vs 20-day forward return, oriented, 283 months):
+
+| Signal | mean IC | NW t | % months +ve |
+|---|---:|---:|---:|
+| **rev_5d (WSTR)** | **0.0218** | **3.43** | 54.6 |
+| combo z(−STR)+z(−vol) | 0.0172 | 2.08 | 54.6 |
+| mom_12_1 | 0.0154 | 1.60 | 57.1 |
+| vol_60d | 0.0135 | 1.03 | 50.4 |
+| rev_1m (STR) | 0.0125 | 1.79 | 52.1 |
+| **p_up (CNN)** | **0.0099** | 2.61 | 57.4 |
+
+The CNN has the **lowest mean IC of the six**. A one-line 5-day reversal has
+more than double the predictive correlation of a 5-seed CNN ensemble that cost
+65 A100-hours.
+
+**Honest long/short** (simple returns, $5 floor, identical rows, 282 months):
+
+| Signal | Decile CAGR | t | 50/50 CAGR | t | Turnover |
+|---|---:|---:|---:|---:|---:|
+| **rev_5d (WSTR)** | **+7.87%** | 2.53 | +4.44% | 3.00 | 0.85 |
+| **p_up residual** | **+4.19%** | **3.01** | +1.68% | 2.70 | 0.89 |
+| **p_up (as deployed)** | **+1.68%** | **1.05** | +0.46% | 0.63 | 0.89 |
+| mom_12_1 | +1.47% | 1.05 | +0.47% | 0.50 | 0.28 |
+| rev_1m (STR) | −1.46% | 0.25 | +2.09% | 1.25 | 0.84 |
+| combo | −4.87% | −0.60 | −0.35% | 0.05 | 0.76 |
+| vol_60d | −12.17% | −0.84 | −4.32% | −1.01 | 0.27 |
+
+### Verdict: the CNN fails the primary gate, but not for the expected reason
+
+**As deployed it is not usable.** +1.68%/yr at **t = 1.05** — not
+distinguishable from zero — and beaten by weekly reversal by **6.2pp/yr**.
+
+**But it is not a repackaged reversal either.** Cross-sectional rank
+correlation of `p_up` against every baseline is low (max |ρ| = 0.18), and the
+sign is informative: `p_up` leans toward recent 1-month *winners*
+(ρ = +0.13 with `rev_1m`) and toward *low* volatility (ρ = −0.13 with
+`vol_60d`). It is doing something genuinely different from the classic signals.
+
+**The orthogonal part is the real signal.** Regressing `p_up` cross-sectionally
+on all baselines each month and ranking on the **residual** gives **+4.19%/yr
+at t = 3.01 — the highest t-statistic of anything tested**, with the best
+Sharpe stability across sub-periods (0.62 / 0.47 / 0.59). The residual is
+*better* than the raw signal, which is only possible if the raw signal's factor
+tilts are actively hurting it: the CNN's low-vol preference is a bet on the
+worst-performing signal in the table (−12.2%/yr).
+
+The residual uses only formation-date information (a cross-sectional regression
+of contemporaneous signals; the forward return never enters), so there is no
+look-ahead.
+
+**Sub-period caveat, and it applies to everything.** Nothing is significant
+after 2015 on its own — WSTR decays from +7.9% (t 2.53) to +3.8% (t 0.65) by
+2020+, and the residual from +4.2% (t 3.01) to +4.5% (t 1.35). With 115 and 63
+months the power is limited, but the honest read is that all of these edges are
+weakening together.
+
+### What this redirects the work toward
+
+Not hyperparameter tuning. The finding is that the CNN carries a **small
+genuine orthogonal edge wrapped in harmful factor exposure**, so the highest-value
+next step is *post-processing, not retraining*: neutralize `p_up` against the
+baseline factors and re-evaluate — which costs no GPU time at all.
+
+It also means the Tracker paper book is currently ranking on a signal with
+t = 1.05. Switching it to the residual is a candidate, but it should wait until
+the neutralization is properly out-of-sample tested.
+
+### Artefacts
+
+- `tests/test_purge_guard.py`, `scripts/evaluate_signal.py`, `scripts/baseline_gauntlet.py`
+- `runs/experiments/stage0_reference_p_up{,_trash}/signal_card.{xlsx,json}`
+- `runs/experiments/stage1_baselines/{baseline_signals.parquet,gauntlet_summary.xlsx}`
+- `runs/experiments/stage1_eval/<signal>/signal_card.{xlsx,json}`
