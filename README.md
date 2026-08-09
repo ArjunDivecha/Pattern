@@ -1795,3 +1795,70 @@ full sample non-promotable.
 *(Reporting artefact: regressing the strawman on itself yields alpha 0.00 with a
 meaningless t on the full sample — floating-point residuals of ~1e-17 — and a
 correct NaN on 2005+. Ignore that cell.)*
+
+## L.8  Vetting an external result — the Dixon geometry signals
+
+An independent run (`runs/residual_geometry/phase0_20260809`, produced outside
+this review) reported a free "last-bar geometry" signal, `rlcc_or`, at **+13.6%
+LS with t 5.86** — stronger than anything found here. Its `p_up_resid` figure of
++4.2%/t 3.01 reproduces §L.4 exactly, so the two pipelines agree and the
+comparison is apples-to-apples.
+
+`rlcc` measures **where the close sat within its daily range on the formation
+date, relative to the prior 19 days**; oriented to buy stocks that closed *low*
+in their range. There is no look-ahead — it uses only that day's OHLC — but the
+construction is the classic signature of **bid-ask bounce**: a stock closing at
+the bid looks like it "closed low in its range," and the next print lands at the
+ask, producing a mechanical gain that cannot be captured.
+
+### The implementation-lag test
+
+Compute the signal at the close of day *t*, but enter at the close of day *t+1*.
+Same 20-day hold, one day later — enough to skip the bounce.
+
+| Signal | IC entering at *t* | IC entering at *t+1* | **Retained** |
+|---|---:|---:|---:|
+| `rlcc_or` | 0.0319 (t 5.91) | 0.0124 (t 2.33) | **38.9%** |
+| `geom_score` | 0.0328 (t 5.59) | 0.0200 (t 3.70) | 61.1% |
+| `rev_5d` (WSTR) | 0.0215 (t 3.39) | 0.0118 (t 1.83) | 54.6% |
+| **`p_up_resid`** | 0.0080 (t 2.76) | 0.0063 (t 2.10) | **79.0%** |
+| `p_up_mean` (raw) | 0.0093 (t 2.42) | 0.0076 (t 1.84) | 81.7% |
+
+**`rlcc_or` loses 61% of its edge to a single day of delay.** Its t collapses
+from 5.91 to 2.33.
+
+Confirmed by where the loss concentrates — retention rises monotonically with
+liquidity, exactly as spread-driven artefacts do:
+
+| `rlcc_or` retention | Q1 (least liquid) | Q2 | Q3 | Q4 (most liquid) |
+|---|---:|---:|---:|---:|
+| by dollar volume | 32.1% | 38.6% | 40.4% | 46.2% |
+
+WSTR shows the same pattern even more starkly (16.5% retained in the least
+liquid quartile, 75.8% in the most). `p_up_resid` shows no such gradient.
+
+### What this changes
+
+**Credit where due.** The external report's *decisions* were correctly hedged —
+it labelled the geometry signals "known-factor refinement, not mystery alpha"
+and declined to promote them as a capital book. Those calls stand. What was
+missing was the era split, turnover, net-of-cost, and the lag test; the headline
++13.6% is ~61% microstructure.
+
+**`rlcc_or` is still not nothing.** It survives the lag at t 2.33, and unlike
+everything else in this review it holds up post-2005 (2015+: gross +9.0%, net
++7.3%, t 2.62). It is a real but heavily-taxed effect, not an artefact.
+
+**The genuinely new finding favours the CNN.** `p_up_resid` is the **most
+implementation-robust signal tested** — 79% of its edge survives a day's delay,
+against 39% for `rlcc_or` and 55% for WSTR. It is small, but it is not a
+microstructure illusion, and it is the only signal here whose edge does not
+concentrate in the least liquid names. That is a point in its favour neither
+this review nor the external report had established.
+
+**And the bar just moved up.** `geom_score` retains 61% at t 3.70 after the lag
+— on that basis it is a *better free baseline than the frozen combo strawman*.
+PREREGISTRATION.md §2 deliberately forbids re-tuning the strawman mid-flight, so
+the frozen benchmark stands for Stage 2; but the honest reading is that the real
+hurdle for any retrained CNN is higher than +2.40%/yr, and geometry belongs in
+the baseline family alongside WSTR when the strawman is next re-frozen.
