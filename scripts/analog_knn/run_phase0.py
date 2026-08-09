@@ -187,7 +187,9 @@ def write_report(out_dir: Path, comp: pd.DataFrame, knn_meta: dict, decision_not
         "",
         "## IC comparison",
         "",
-        comp.to_markdown(index=False) if hasattr(comp, "to_markdown") else comp.to_string(index=False),
+        "```",
+        comp.to_string(index=False),
+        "```",
         "",
         "## Decision notes",
         "",
@@ -198,19 +200,7 @@ def write_report(out_dir: Path, comp: pd.DataFrame, knn_meta: dict, decision_not
         "See `leakage_checklist.md`.",
         "",
     ]
-    try:
-        body = "\n".join(lines)
-    except Exception:
-        body = "\n".join(
-            [
-                "# Analog kNN Phase 0 report",
-                "",
-                comp.to_string(index=False),
-                "",
-                decision_notes,
-            ]
-        )
-    (out_dir / "report.md").write_text(body)
+    (out_dir / "report.md").write_text("\n".join(lines))
 
 
 def write_leakage_checklist(out_dir: Path) -> None:
