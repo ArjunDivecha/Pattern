@@ -1466,3 +1466,116 @@ the neutralization is properly out-of-sample tested.
 - `runs/experiments/stage0_reference_p_up{,_trash}/signal_card.{xlsx,json}`
 - `runs/experiments/stage1_baselines/{baseline_signals.parquet,gauntlet_summary.xlsx}`
 - `runs/experiments/stage1_eval/<signal>/signal_card.{xlsx,json}`
+
+## L.4  Factor neutralization — the CNN's edge was being masked
+
+Gate G1 showed raw `p_up` failing (+1.68%/yr, t 1.05) while its residual beat
+it. `scripts/neutralize_p_up.py` tests whether that is real, where it comes
+from, and whether it is implementable.
+
+### Fama-MacBeth: the cleanest evidence
+
+Per formation date, regress the 20-day forward **simple** return on
+rank-normalized signals (each mapped to [−0.5, 0.5], so coefficients are a
+bottom-to-top return spread and immune to the wildly different raw scales).
+Average across 282 months, Newey-West t:
+
+| Spec | Regressor | Mean coef (%) | NW t |
+|---|---|---:|---:|
+| univariate | **p_up** | 0.113 | **0.76** |
+| multivariate | **p_up** | **0.326** | **3.07** |
+| multivariate | rev_5d (WSTR) | 0.646 | 3.47 |
+| multivariate | mom_12_1 | 0.562 | 1.51 |
+| multivariate | rev_1m (STR) | 0.378 | 1.52 |
+| multivariate | vol_60d | −0.562 | −1.09 |
+
+**On its own p_up does not predict returns (t 0.76). Controlling for the
+baselines, its coefficient triples and becomes strongly significant (t 3.07).**
+This is a textbook suppression effect: the CNN's factor tilts were masking its
+own signal. Only two regressors are significant in the multivariate spec —
+WSTR and p_up.
+
+This test was specified before the result was seen and is not one of the
+variants searched over below.
+
+### It is not just the vol tilt
+
+| Neutralized against | Decile CAGR | t | Sharpe | corr w/ raw p_up |
+|---|---:|---:|---:|---:|
+| — (raw p_up) | +1.68% | 1.05 | 0.22 | 1.000 |
+| vol only | +4.21% | 2.76 | 0.57 | 0.988 |
+| rev_1m only | +3.98% | 2.16 | 0.45 | 0.977 |
+| vol + rev_1m | +5.59% | 3.33 | 0.69 | 0.965 |
+| **all four** | **+5.60%** | **3.72** | **0.77** | 0.957 |
+
+Both exposures do roughly equal damage and the effects are additive — the G1
+write-up's "it's the low-vol tilt" hypothesis was only half right. Note the
+neutralization changes the ranking barely at all (rank correlation 0.957 with
+raw p_up): **a ~4% change in the ordering triples the return.** A small factor
+tilt was doing disproportionate damage.
+
+### Is it implementable? Yes — and the honest test is subtler than it looks
+
+The neutralization uses **contemporaneous** cross-sectional betas. That is not
+look-ahead: the forward return never enters the regression, every input is
+known at the formation date, and cross-sectionally neutralizing an alpha
+against current factor exposures is exactly what a risk model does. It is
+executable in real time.
+
+As a robustness check, `resid_all_causal` refits betas using **only months
+strictly before t** (36-month burn-in). Full-sample it looks much weaker
+(+2.64%, t 1.54) — but that is a burn-in artifact, and the period split
+reverses the conclusion:
+
+| Signal | Full CAGR / Sharpe | Since-2015 | **Since-2020** |
+|---|---|---|---|
+| rev_5d (WSTR) | 7.87% / 0.52 | 5.57% / 0.41 | **3.80% / 0.28** |
+| p_up neutralized (contemp.) | 5.60% / **0.77** | 3.97% / 0.58 | 5.69% / 0.71 |
+| p_up neutralized (causal) | 2.64% / 0.34 | 4.66% / 0.56 | **7.68% / 0.81** |
+| p_up raw | 1.68% / 0.22 | 1.67% / 0.23 | 2.20% / 0.27 |
+
+**WSTR is decaying (Sharpe 0.52 → 0.41 → 0.28). Neutralized p_up is not.**
+Since 2020 the strictly-causal neutralized CNN is the best signal tested on
+both return and Sharpe — and it is the most conservative construction of the
+lot.
+
+### Net of costs, and the honest bottom line
+
+Turnover is ~0.89 one-sided monthly for every p_up variant. Full-sample decile
+LS, net of `12 × 2 × turnover × half-spread`:
+
+| Signal | Gross | Net @ 8bp | Net @ 25bp | Sharpe | t |
+|---|---:|---:|---:|---:|---:|
+| **combo: neutralized p_up + WSTR** | **9.48%** | **+7.77%** | +4.14% | 0.76 | 3.70 |
+| rev_5d (WSTR) alone | 7.87% | +6.23% | +2.74% | 0.52 | 2.53 |
+| p_up neutralized alone | 5.60% | +3.89% | +0.25% | **0.77** | **3.72** |
+| **p_up raw (as deployed)** | 1.68% | **−0.02%** | −3.64% | 0.22 | 1.05 |
+
+The equal-weight combination of neutralized p_up and WSTR is the best book on
+the full sample — +7.8%/yr net at 8bp with Sharpe 0.76 and t 3.70 — and beats
+either component alone, so the two carry genuinely complementary information.
+Since 2020, though, adding WSTR *hurts* (Sharpe 0.81 → 0.57) because WSTR has
+decayed; the pure neutralized CNN is the better recent book.
+
+### Revised verdict on Gate G1
+
+The Stage-1 conclusion — "the CNN loses to a one-liner" — was right about the
+signal **as deployed** and wrong about the signal **as available**:
+
+- **Raw `p_up` is genuinely worthless net of costs: −0.02%/yr at 8bp.** The
+  Tracker paper book currently ranks on exactly this.
+- **Factor-neutralized, the CNN carries real, independently-significant
+  content** (FM t 3.07; decile t 3.72; Sharpe 0.77 — the best risk-adjusted
+  number of anything tested), it is implementable, and unlike WSTR it has not
+  decayed.
+- **The remaining caveat is unchanged and material:** no signal reaches t = 2
+  in any post-2015 sub-period. The strong t-statistics all lean on 1999–2014.
+  With 63 months since 2020 the power simply is not there yet, and roughly a
+  dozen variants were searched over to find these — the Fama-MacBeth test is
+  the one pre-specified result that does not carry that discount.
+
+### Artefacts
+
+- `scripts/neutralize_p_up.py`
+- `runs/experiments/stage1b_neutralize/{neutralized_signals.parquet, combo_signals.parquet, fama_macbeth.xlsx}`
+- `runs/experiments/stage1b_eval/<variant>/signal_card.{xlsx,json}`
