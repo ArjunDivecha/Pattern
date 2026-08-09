@@ -53,3 +53,12 @@ Use the repo venv (Python 3.14): `/Users/arjundivecha/Dropbox/AAA Backup/A Worki
 - **Research-complete.** R1000 expanding pathway is the headline: LS D10−D1 Sharpe 1.22, NW t +7.99, +17.4%/yr, 1999–2026, 25/28 test years positive.
 - **Deployment question answered (mostly negative).** Alpha concentrates in small-cap, high-vol, recent-loser names that are expensive to trade; capacity ≈ $500k–$1M/side. ETF and single-stock-ETF transfer all failed (README addenda H, I). One tradable R1000 cell survives net of costs (mid-cap × high-vol × recent-loser, ~+13% net CAGR, Sharpe 0.79, t 3.86).
 - **Working tree is dirty (uncommitted):** 14 modified tracked files + 1 untracked (`scripts/plot_mid_cell_since2020.py`), ~653 insertions — a doc-header sweep plus real code edits in `backtest/` and `models/cnn.py`. Review and commit before building on top.
+
+
+## Cross-session messaging
+
+Claude Code sessions can message each other directly. `ListAgents` (or `/list-agents`, `/peers`)
+lists reachable sessions; `SendMessage` delivers plain text to one by name. Same-machine delivery
+uses a local socket; cross-machine is reply-only via Remote Control. Use it to hand off a finding
+to a session working elsewhere instead of relaying it through the user. A message is text only —
+never conversation history or files; to share full context, resume the session instead.
