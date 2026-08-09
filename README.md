@@ -2035,3 +2035,75 @@ The bar was never +2.40%/yr. On an implementable basis the bar post-2005 is
 approximately **zero**, and so is everything measured against it. That is the
 cleanest statement this review can make, and it applies to the CNN, to the
 free baselines, and to the geometry signals alike.
+
+## L.11  Correcting the lag test — `rlcc` survives, and it is the best result here
+
+The implementation-lag test used throughout §L.8–L.10 entered at the **t+1
+close**. That discards the whole of day *t+1* — **the exact day a one-day
+reversion signal predicts**. It is not a bounce filter; it is a filter that
+removes the effect being measured.
+
+The realistic implementation is the **next morning's open**: the signal is known
+at the day-*t* close, and you buy at the *t+1* open. (Near-*t*-close entry is
+also roughly feasible via market-on-close orders, so the true range is bounded
+by the two.) Testing all three:
+
+### `rlcc_or`, 2005+ (n=219), decile LS, net @8bp
+
+| Entry | All names | Liquid half (top-50% $ volume) |
+|---|---|---|
+| *t* close (MOC-feasible) | +7.40%, Sharpe 0.94, t 3.82 | +4.69%, t 2.27 |
+| **_t+1_ OPEN (realistic)** | **+6.18%, Sharpe 0.82, t 3.41** | **+3.89%, t 2.04** |
+| *t+1* close (the flawed test) | +2.20%, Sharpe 0.43, t 1.75 | +1.14%, t 1.14 |
+
+**Entering at the next open retains 84% of the edge and stays significant** —
+including in the liquid half, where spreads are narrowest and bounce is smallest.
+Were this bid-ask bounce, the overnight gap would have consumed it and the
+*t+1*-open column would be empty. It is not. This is genuine short-horizon
+reversion, concentrated in day *t+1*, and it is capturable.
+
+### Every signal at the fair entry (*t+1* open), 2005+
+
+| Signal | Net | Sharpe | t | alpha t vs strawman |
+|---|---:|---:|---:|---:|
+| **`rlcc` last-bar** | **+6.18%** | **0.823** | **3.41** | **3.38** |
+| Dixon geometry | +3.62% | 0.436 | 2.23 | 1.62 |
+| GBDT L3 (best Stage-2) | +1.84% | 0.424 | 1.74 | 1.94 |
+| Frozen strawman | +1.48% | 0.326 | 1.46 | −1.26 |
+| WSTR | +0.71% | 0.231 | 1.02 | −0.28 |
+| CNN residual | −0.30% | 0.234 | 1.18 | 0.31 |
+
+### What this corrects, and what it does not
+
+**Corrected — L.10 was wrong.** I wrote that "on an implementable basis the
+post-2005 bar is approximately zero." It is not. At the fair entry `rlcc`
+delivers **+6.18%/yr net with t 3.41**, post-2005, in a period where every other
+signal in this review is flat. That statement was produced by a mis-specified
+test, and the mis-specification ran through L.8, L.9 and L.10.
+
+**Not corrected — Stage 2 still fails.** At the *t+1*-open entry the best
+Stage-2 candidate, GBDT L3, reaches alpha t **1.94** against a §5 bar of 2.0.
+The "no promotion" verdict holds at the fair entry, so PREREGISTRATION A2
+stands unamended.
+
+**The uncomfortable summary.** The strongest implementable signal found anywhere
+in this review is a **free, one-line piece of OHLC arithmetic** — where a stock
+closed within its daily range — which arrived from an outside run, not from the
+CNN, the GBDT, or any of the machinery built here. The CNN residual at the fair
+entry is −0.30%.
+
+### Remaining caveats on `rlcc`
+
+- Turnover is ~89% one-sided monthly; at a 25bp half-spread rather than 8bp the
+  edge would be largely consumed. The liquid-half result (+3.89%, t 2.04) is
+  the relevant one for capacity.
+- The edge concentrates in day *t+1*, which makes it sensitive to execution
+  slippage on a single day and argues for open-auction or VWAP entry.
+- It is a short-horizon reversal-family effect: capacity-constrained, and in the
+  same family as the WSTR/geometry signals whose earlier eras decayed.
+- It has now been tested several ways on the same R1000 panel by me, after
+  arriving with its full-sample numbers visible. That is selection pressure.
+
+**`rlcc` is the natural and only candidate for the NKY lockbox (§8), which
+remains sealed and unspent.** It is precisely what that one shot was reserved
+for, and it would need its own pre-registration first.
