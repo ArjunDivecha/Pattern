@@ -1967,3 +1967,71 @@ Recorded as amendments A1 and A2 in PREREGISTRATION.md.
    bounce.** It shows up in `rlcc_or` (39% retained), WSTR (55%), and now our
    own GBDT (49–61%). Any future work on this panel should treat the
    implementation-lag test as mandatory, not optional.
+
+## L.10  Correcting L.8 — and the strawman was bounce too
+
+§L.8 asserted that `geom_score` "is a better free baseline than the frozen combo
+strawman" and that "the real bar is higher than +2.40%/yr." That was based on a
+**full-sample IC t-statistic of 3.70**. Tested properly — post-2005, as a
+portfolio, net of turnover, under both entry timings — the claim is directionally
+right but far weaker than stated, and it surfaces something worse.
+
+### 2005+ (n=219), decile LS, net of turnover @8bp
+
+| Signal | Entry | Net | Sharpe | t | Alpha vs strawman | alpha t |
+|---|---|---:|---:|---:|---:|---:|
+| Dixon geometry | *t* | +4.89% | 0.526 | 2.61 | +4.89% | 1.88 |
+| Dixon geometry | *t+1* | +2.17% | 0.333 | 1.80 | +2.52% | 1.02 |
+| `rlcc` last-bar | *t* | +7.40% | 0.936 | 3.82 | +9.60% | 3.75 |
+| `rlcc` last-bar | *t+1* | +2.20% | 0.433 | 1.75 | +4.38% | 1.71 |
+| WSTR | *t* | +2.05% | 0.322 | 1.43 | +0.05% | 0.03 |
+| WSTR | *t+1* | **−1.73%** | 0.071 | 0.34 | −3.41% | −1.66 |
+| **FROZEN strawman** | *t* | **+2.26%** | 0.395 | 1.82 | — | — |
+| **FROZEN strawman** | *t+1* | **−0.10%** | 0.194 | 0.91 | −2.04% | −2.10 |
+| CNN residual | *t* | −0.16% | 0.260 | 1.24 | +0.33% | 0.24 |
+| CNN residual | *t+1* | **+0.13%** | **0.307** | **1.47** | +0.72% | 0.55 |
+
+### Three corrections
+
+**1. The L.8 claim was overstated.** Geometry does beat the strawman on both
+entry timings — but the alpha is +1.88 t unlagged and +1.02 t lagged. Neither is
+significant. Quoting a full-sample IC t of 3.70 as though it settled a post-2005
+portfolio question was exactly the error §3 of the pre-registration exists to
+prevent, and I made it in prose while the protocol was sitting in the repo.
+
+**2. The frozen strawman is itself substantially bid-ask bounce.** It goes from
++2.26% to **−0.10%** on a one-day delay. So the §5 bar of "+2.40%/yr" was largely
+measuring something non-tradeable. This does not change Stage 2's verdict — if
+anything it strengthens it, since the candidates were bounce-driven too and were
+being judged against a bounce-driven benchmark. But it means the whole Stage-2
+comparison sat on a baseline that does not survive realistic implementation.
+
+**3. WSTR post-2005 is essentially all bounce** — +2.05% unlagged, **−1.73%**
+lagged. The "closest competitor" the paper names does not survive a day's delay
+in the modern era.
+
+### What survives a realistic implementation assumption
+
+Almost nothing. Best post-lag is geometry or `rlcc` at ~+2.2% net with t ≈ 1.8 —
+gross of borrow, on a book turning 89% of its names monthly.
+
+The one signal that does **not** degrade is the CNN residual: −0.16% → **+0.13%**,
+Sharpe 0.260 → **0.307**, t 1.24 → **1.47**. It is the only thing tested that
+improves under lag. But its level is approximately zero, so the honest reading is
+"genuinely nothing" rather than "fake something" — which is a real distinction,
+just not a profitable one.
+
+### On the lag test's severity
+
+Entering at the *t+1* close is conservative. In practice the signal cannot be
+computed before the day-*t* close (it uses that close), so *t* entry is
+impossible; but *t+1* **open** would capture more than *t+1* close. The truth
+lies between the two columns, closer to the lagged one. Nothing here changes
+qualitatively at an intermediate assumption — the signals that collapse, collapse.
+
+### Implication
+
+The bar was never +2.40%/yr. On an implementable basis the bar post-2005 is
+approximately **zero**, and so is everything measured against it. That is the
+cleanest statement this review can make, and it applies to the CNN, to the
+free baselines, and to the geometry signals alike.
