@@ -1,8 +1,14 @@
-# Large data / cached artifacts — never commit these
-cache/
-data/
-runs/
-logs/
+# Large data / cached artifacts — never commit these.
+# ANCHORED with a leading slash (repo root only). A bare `data/` matches a
+# directory named `data` at ANY depth, which silently excluded the source
+# package `pattern/data/` — including splits.py, the leakage-critical purge
+# logic, and loader.py — from every commit since the initial one. That is how
+# the April 2026 "relative label" experiment's code was lost: it lived in an
+# untracked file and was overwritten with no history to recover it from.
+/cache/
+/data/
+/runs/
+/logs/
 wandb/
 
 # Python
