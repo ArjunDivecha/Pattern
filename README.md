@@ -2107,3 +2107,101 @@ entry is −0.30%.
 **`rlcc` is the natural and only candidate for the NKY lockbox (§8), which
 remains sealed and unspent.** It is precisely what that one shot was reserved
 for, and it would need its own pre-registration first.
+
+## L.12  `rlcc` parameter exploration — a real plateau, and a month-end effect
+
+Before spending the NKY lockbox on `rlcc`, its parameter space was swept. It is
+pure OHLC arithmetic, so 144 variants cost 8 minutes rather than GPU time.
+
+**Anti-overfitting design:** every variant reported on a time split — tune
+2005–2015, validate 2016–2026 — and ranked on the *worse* of the two halves, so
+a variant must work in both. NKY stayed sealed throughout.
+
+### The parameter surface is a plateau, not a needle
+
+| `n_last` | mean worst-half net | % positive in **both** halves |
+|---:|---:|---:|
+| 1 | +3.52% | 94% |
+| **2** | **+4.62%** | **100%** |
+| 3 | +1.69% | 89% |
+| 5 | +0.09% | 47% |
+
+| `lookback` | mean | % positive both |
+|---:|---:|---:|
+| 5 | +1.39% | 69% |
+| 10 | +2.46% | 89% |
+| 20 | +2.07% | 72% |
+| **60** | **+4.01%** | **100%** |
+
+Normalization (raw / z / norm01) and CLV definition barely matter — 2.0–3.0%
+mean across all three — which is what one wants from nuisance parameters.
+`mid` and `hl` are provably identical (they differ by a constant that cancels
+in the difference), a useful check that the implementation is correct.
+
+**58 of 144 variants (40%) clear +2% net with t > 1.5 in both halves.** A fluke
+produces one or two cells, not 58. The best region is `n_last ≤ 2`, `lookback =
+60`; the original construction (`n_last=1, lookback≈20`) ranks **26th of 144**,
+so the published setting was mid-plateau rather than optimal.
+
+### Where the return accrues — and a correction to my own analysis
+
+31% of the 20-day return lands on day 1; the per-day rate decays from 25bp to
+4bp. That suggested a shorter hold, and a cost-sensitivity table built on
+monthly-formation returns projected H=5 at **+25.5%/yr net @8bp**.
+
+**That projection was wrong.** It annualized month-end-formation returns as
+though such a book could be formed every day. Building the actual daily
+overlapping implementation, with *measured* turnover:
+
+| Hold | Ann. turnover | Gross | Sharpe | Net @8bp |
+|---:|---:|---:|---:|---:|
+| 1 | 341× | +5.4% | 0.42 | **−49.2%** |
+| 3 | 149× | +6.5% | 0.67 | −17.3% |
+| 5 | 90× | +4.6% | 0.60 | **−9.7%** |
+| 20 | 23× | +1.8% | 0.46 | −1.8% |
+
+Every daily-formation variant loses money at realistic cost. Two causes: real
+turnover is roughly double what monthly rebalancing implied, and — the larger
+effect — gross return collapses from 7.9% to 1.8% at the same 20-day hold
+simply by forming every day instead of at month-end.
+
+### Which is because the edge is a month-end effect
+
+20-day LS by the formation day's distance to month end:
+
+| Formation day | n | Mean 20d LS | t |
+|---|---:|---:|---:|
+| **0 (month-end)** | 259 | **+0.739%** | **3.72** |
+| 1–2 before | 518 | +0.261% | 1.92 |
+| 3–5 | 777 | +0.122% | 0.99 |
+| 6–10 | 1,290 | +0.179% | 1.54 |
+| 11+ | 2,568 | +0.048% | 0.66 |
+
+**6.5× at month-end versus all other days**, decaying monotonically. This was
+not selected for — the month-end grid was inherited from the CNN's cadence, and
+the effect was discovered only by testing daily formation. It has a plausible
+mechanism: month-end concentrates index rebalancing, window dressing and fund
+flows, so flow-driven dislocation — exactly what a close-location reversal
+signal detects — should peak there.
+
+### What the strategy actually is
+
+Not a daily reversal book. It is: **at each month-end, buy the decile that
+closed lowest in their daily range relative to a 60-day baseline (2-bar signal),
+enter at the next open, hold 20 days.** Twelve rebalances a year, ~89% one-sided
+turnover per rebalance, and the L.11 headline (+6.18%/yr net @8bp, t 3.41,
+2005+) stands.
+
+### Caveats that now matter more
+
+- **259 month-end observations.** The whole result rests on one formation day a
+  month; the daily data mostly serves to show the other days do not work.
+- Month-end anomalies are among the most documented and therefore among the
+  most likely to have been arbitraged — though this one is still present
+  in 2016–2026 (validate half: +6.7 to +6.9% net, t 2.1–2.4).
+- Best-cell numbers are selected using the validate half (the ranking uses the
+  worse of the two), so they are optimistically biased. The *marginal* findings
+  — `n_last ≤ 2`, `lookback = 60`, indifference to normalization — are the
+  trustworthy part.
+- Capacity is bounded by the month-end trade, and the signal lives in exactly
+  the flow-congested window where everyone else is also trading.
