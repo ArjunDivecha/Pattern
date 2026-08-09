@@ -174,9 +174,27 @@ def apply_cell(df: pd.DataFrame, cell: str, ohlcv_path: Path,
 
 # ── portfolio construction ───────────────────────────────────────────────────
 
+def _wmean(sub: pd.DataFrame, col: str, wcol: str | None) -> float:
+    """Weighted mean return of a leg. `wcol` None => equal weight."""
+    if wcol is None:
+        return sub[col].mean()
+    w = sub[wcol]
+    ok = w.notna() & (w > 0) & sub[col].notna()
+    if ok.sum() < 2:
+        return sub[col].mean()
+    w = w[ok]
+    return float((sub.loc[ok, col] * w).sum() / w.sum())
+
+
 def build_books(df: pd.DataFrame, score: str, n_deciles: int,
-                min_names: int) -> tuple[pd.DataFrame, dict]:
-    """Per-formation-date decile and 50/50 books, on BOTH return conventions."""
+                min_names: int, wcol: str | None = None) -> tuple[pd.DataFrame, dict]:
+    """Per-formation-date decile and 50/50 books, on BOTH return conventions.
+
+    `wcol` selects the position-weighting column (None = equal weight). Used for
+    the inverse-volatility test: an equal-weighted book hands the most risk to
+    the most volatile names, which is the opposite of what a risk-aware book
+    would do, so 1/vol weighting is the natural alternative to check.
+    """
     rows, skipped = [], 0
     for dt, g in df.groupby("end_date"):
         g = g.dropna(subset=[score, "r_simple", "forward_return"])
@@ -194,11 +212,11 @@ def build_books(df: pd.DataFrame, score: str, n_deciles: int,
             continue
         rows.append({
             "end_date": dt, "n": n,
-            "ls_decile": top_d.r_simple.mean() - bot_d.r_simple.mean(),
-            "ls_5050": top_h.r_simple.mean() - bot_h.r_simple.mean(),
-            "top_decile": top_d.r_simple.mean(),
-            "bot_decile": bot_d.r_simple.mean(),
-            "ew": g.r_simple.mean(),
+            "ls_decile": _wmean(top_d, "r_simple", wcol) - _wmean(bot_d, "r_simple", wcol),
+            "ls_5050": _wmean(top_h, "r_simple", wcol) - _wmean(bot_h, "r_simple", wcol),
+            "top_decile": _wmean(top_d, "r_simple", wcol),
+            "bot_decile": _wmean(bot_d, "r_simple", wcol),
+            "ew": _wmean(g, "r_simple", wcol),
             # cross-reference only: the mean-LOG convention used pre-addendum-K
             "ls_decile_LOGCONV": top_d.forward_return.mean() - bot_d.forward_return.mean(),
             "ls_5050_LOGCONV": top_h.forward_return.mean() - bot_h.forward_return.mean(),
@@ -255,6 +273,9 @@ def main() -> None:
     ap.add_argument("--min-price", type=float, default=MIN_PRICE)
     ap.add_argument("--lower-is-better", action="store_true",
                     help="negate the score (e.g. reversal: low past return = buy)")
+    ap.add_argument("--weighting", choices=["equal", "inverse_vol"], default="equal",
+                    help="position weighting within each leg. inverse_vol uses "
+                         "1/vol_60d, i.e. equal RISK rather than equal dollars.")
     ap.add_argument("--cell", choices=sorted(CELLS), default=None,
                     help="restrict to a cross-sectional cell before ranking "
                          "(trash = Low dv x High vol x Low mom; "
@@ -287,6 +308,18 @@ def main() -> None:
     # forward_return is a 20-day LOG return -> simple return for portfolio math
     df["r_simple"] = np.expm1(df["forward_return"])
 
+    wcol = None
+    if args.weighting == "inverse_vol":
+        # Rename before merging: several signal files already carry a
+        # `vol_60d` column of their own, and a silent _x/_y collision here
+        # would weight by whichever pandas happened to pick.
+        vf = (compute_cell_features(ohlcv_path)[["ticker", "end_date", "vol_60d"]]
+              .rename(columns={"vol_60d": "_wt_vol_60d"}))
+        df = df.merge(vf, on=["ticker", "end_date"], how="left")
+        df["inv_vol"] = 1.0 / df["_wt_vol_60d"].where(df["_wt_vol_60d"] > 0)
+        wcol = "inv_vol"
+        print(f"Weight : inverse vol ({df.inv_vol.notna().mean()*100:.1f}% of rows have vol)")
+
     if args.cell:
         before = len(df)
         df = apply_cell(df, args.cell, ohlcv_path, args.min_price)
@@ -306,7 +339,7 @@ def main() -> None:
                            "min_price": args.min_price, "variants": {}}
 
     for vname, vdf in variants.items():
-        book, meta = build_books(vdf, "score", args.n_deciles, args.min_names)
+        book, meta = build_books(vdf, "score", args.n_deciles, args.min_names, wcol)
         if book.empty:
             print(f"  [{vname}] no usable months — skipped")
             continue

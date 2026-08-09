@@ -1734,3 +1734,64 @@ another backtest and not by another GPU run.
   — gross vs net, full sample vs since-2020
 - [`runs/experiments/charts/neutralization_ladder.pdf`](runs/experiments/charts/neutralization_ladder.pdf)
   — stripping the tilts one at a time
+
+## L.7  Two free diagnostics, both negative
+
+Run before Stage 2, using only already-trained models and portfolio-level
+changes — no new fitting, so neither consumes a pre-registered variant slot
+(PREREGISTRATION.md §7). Both scored against the frozen strawman on the primary
+2005+ window.
+
+### Rolling vs expanding retraining
+
+The `runs/rolling` pathway (trailing 5-year training window) has existed since
+April and had never been scored honestly. If the post-2005 decay were a regime
+change, recency-weighted training should help.
+
+It does the opposite. Fama-MacBeth incremental content of `p_up`:
+
+| Pathway | univariate | + baselines | + size + sector |
+|---|---:|---:|---:|
+| **expanding** | 0.113 (t 0.76) | **0.326 (t 3.07)** | **0.330 (t 3.40)** |
+| rolling | 0.056 (t 0.43) | 0.178 (t 1.45) | 0.209 (t 1.90) |
+
+And as a portfolio, 2005+, net@8bp: expanding-neutralized **+0.88%**, rolling-
+neutralized **−2.57%** (Sharpe −0.10).
+
+**More data beats recent data**, decisively and counter-intuitively. Whatever
+the CNN learns is stable enough that a 5-year window starves it, so the decay
+is not something a shorter memory fixes.
+
+### Inverse-volatility position weighting
+
+An equal-weighted book hands the most risk to the most volatile names — the
+opposite of what a risk-aware book does — so 1/vol weighting was the obvious
+free improvement. Tested on **both** the candidate and the strawman, since a
+portfolio-construction gain that helps one would help the other.
+
+Decile LS, 2005+, net@8bp:
+
+| Signal | Weighting | Net | Sharpe | Alpha vs strawman | t |
+|---|---|---:|---:|---:|---:|
+| CNN neutralized | equal | +0.88% | 0.434 | +1.82% | 1.25 |
+| CNN neutralized | inverse-vol | +0.73% | 0.445 | +1.79% | 1.36 |
+| **strawman (combo)** | equal | **+2.40%** | 0.408 | — | — |
+| strawman (combo) | inverse-vol | +1.97% | 0.380 | −0.14% | −0.22 |
+
+A wash at best: a hair of Sharpe on the neutralized CNN (0.434 → 0.445), and it
+*hurts* the strawman on every measure. Not the fix.
+
+### Neither passes the pre-registered bar
+
+PREREGISTRATION.md §5 requires, over 2005+, alpha t ≥ 2.0 **and** own net ≥
++2.0%/yr. Best candidate here reaches alpha t 1.36 and net +0.88%. Nothing is
+promoted.
+
+Worth noting the by-now familiar shape: the expanding neutralized CNN's alpha
+over the strawman is **+3.02% at t 2.01 on the full sample** — nominally over
+the line — and **+1.82% at t 1.25 from 2005**. This is exactly why §3 makes the
+full sample non-promotable.
+
+*(Reporting artefact: regressing the strawman on itself yields alpha 0.00 with a
+meaningless t on the full sample — floating-point residuals of ~1e-17 — and a
+correct NaN on 2005+. Ignore that cell.)*
