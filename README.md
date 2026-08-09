@@ -1663,3 +1663,74 @@ experiment.
 
 - `runs/experiments/stage1c_extended/{neutralized_signals.parquet, fama_macbeth.xlsx}`
 - `runs/experiments/stage1c_eval/<variant>/signal_card.{xlsx,json}`
+
+## L.6  The charts expose what the CAGRs hid: it all happened before 2005
+
+`scripts/plot_signal_comparison.py` plots the cumulative books. Two things are
+immediately visible that no summary statistic in L.3–L.5 revealed.
+
+**First, raw `p_up` loses money net of costs over 27 years: ×0.99.** Not "a
+small positive" — it ends below where it started. That is the signal the
+Tracker paper book is currently ranking on.
+
+**Second, and far more important: every line goes flat after 2004.**
+
+Decile LS by era, net of 8bp (t-statistics on gross):
+
+| Signal | 1999–2004 | **2005–2019** | 2020–2026 |
+|---|---:|---:|---:|
+| raw p_up | +4.7% (t 1.51) | **−2.1% (t 0.02)** | +0.5% (t 0.63) |
+| WSTR | +21.1% (t 2.58) | **+2.2% (t 1.31)** | +2.1% (t 0.72) |
+| neutralized (baselines) | +14.7% (t 3.47) | **−0.3% (t 0.96)** | +3.9% (t 1.81) |
+| neutralized (+size+sector) | +14.5% (t 3.66) | **+0.1% (t 1.62)** | −1.2% (t 0.25) |
+| combo | +28.0% (t 4.27) | **+2.0% (t 1.52)** | +3.4% (t 1.11) |
+
+**Across the fifteen years from 2005 to 2019 — 180 months, the majority of the
+sample — every single signal returns approximately zero net.** Nothing reaches
+t = 1.7. The impressive full-sample t-statistics of 3.4–3.9 reported in L.4 and
+L.5 are almost entirely produced by a six-year window that ended two decades
+ago.
+
+This is not a CNN-specific problem. WSTR shows the identical shape (+21% then
++2%), which is what one would expect of short-horizon cross-sectional effects
+that were arbitraged away after decimalization and the arrival of systematic
+quant capital. The 1999–2004 window also contains the dot-com bust, an
+exceptional dispersion regime that flatters every cross-sectional reversal
+strategy.
+
+### This revises L.4 and L.5
+
+The earlier framing — "over 27 years the CNN carries genuine predictive content
+that survives every control (FM t 3.40), which is the strongest evidence the
+project has" — is *arithmetically* correct and *practically* misleading. The
+honest version:
+
+- The content is real **in 1999–2004**.
+- It is absent, for every signal tested, **in 2005–2019**.
+- The last six years are too noisy to call either way.
+
+A signal that worked before 2005 and has done nothing measurable since is not
+evidence for deployment. It is evidence that the effect existed and decayed.
+
+### What survives
+
+- The **methodology** is now sound and reusable: the leakage guard is frozen,
+  one measuring stick scores everything, and factor neutralization is
+  understood and implemented.
+- The **diagnosis** stands: raw `p_up` is contaminated by factor tilts, and
+  neutralizing genuinely improves it in every era where anything works at all.
+- What does **not** survive is the case for spending further compute. The
+  binding constraint was never the model, the hyperparameters, or the training
+  budget — it is that the effect this project is trying to harvest largely
+  stopped paying twenty years ago.
+
+The remaining live question is narrow and cheap: does the neutralized signal do
+anything in the *next* few years? That is answered by paper-tracking it, not by
+another backtest and not by another GPU run.
+
+### Charts
+
+- [`runs/experiments/charts/signal_comparison.pdf`](runs/experiments/charts/signal_comparison.pdf)
+  — gross vs net, full sample vs since-2020
+- [`runs/experiments/charts/neutralization_ladder.pdf`](runs/experiments/charts/neutralization_ladder.pdf)
+  — stripping the tilts one at a time
