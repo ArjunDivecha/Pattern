@@ -2205,3 +2205,85 @@ turnover per rebalance, and the L.11 headline (+6.18%/yr net @8bp, t 3.41,
   trustworthy part.
 - Capacity is bounded by the month-end trade, and the signal lives in exactly
   the flow-congested window where everyone else is also trading.
+
+## L.13  Out-of-sample replication on three markets — FAILS
+
+Rather than spend the single NKY lockbox shot — whose failure mode would have
+been uninterpretable, since Japan's month-end structure genuinely differs —
+the signal was tested on **three developed markets never touched by this
+review**: Australia (407 names), the UK (525), Japan (224), all from the Kronos
+data tree.
+
+**Pre-committed before running.** The R1000-swept parameters were transplanted
+unchanged (`n_last=2`, `lookback=60`, month-end formation, next-open entry,
+20-day hold, decile LS). Nothing was fitted on these markets. The success
+criterion was fixed in advance: **positive with t ≥ 2.0 in at least two of the
+three markets.**
+
+### Headline — month-end formation, 2005+
+
+| Market | Names | Months | Gross | Sharpe | t | Net @8bp | Pass |
+|---|---:|---:|---:|---:|---:|---:|---|
+| Australia | 407 | 191 | +8.38% | 0.527 | **2.09** | +6.68% | **YES** |
+| UK500 | 525 | 254 | +2.16% | 0.302 | 1.35 | +0.49% | no |
+| Japan | 224 | 254 | **−1.81%** | −0.097 | −0.49 | −3.53% | no |
+
+**One of three. The pre-committed verdict is FAILS TO REPLICATE.**
+
+### And the mechanism inverts
+
+The specific claim from L.12 was not merely that the signal works, but that it
+concentrates at month-end — 6.5× on R1000. Testing that directly (other-days
+t-statistics use Newey-West lag 21, since those are 20-day holds sampled daily
+and lag 3 would overstate them):
+
+| Market | Month-end | Other days | **Ratio** |
+|---|---|---|---:|
+| *R1000 (in-sample)* | *+0.739% (t 3.72)* | *+0.113%* | ***6.52×*** |
+| Australia | +0.815% (t 2.09) | +0.604% (t 6.09) | **1.35×** |
+| UK500 | +0.206% (t 1.35) | −0.248% (t −1.06) | **−0.83×** |
+| Japan | −0.095% (t −0.49) | +0.217% (t 3.13) | **−0.44×** |
+
+The month-end concentration replicates **nowhere**. In Australia the signal is
+far *stronger* on ordinary days than at month-end (t 6.09 vs 2.09). In Japan it
+works on ordinary days (t 3.13) and is *negative* at month-end. Two of three
+markets invert the pattern outright.
+
+### What this means
+
+**The month-end effect is not established.** Either it is genuinely
+US-specific — plausible, since US month-end index rebalancing and fund flows
+are the largest anywhere — or the R1000 result was 259 observations of luck.
+This test cannot separate those, but it removes the basis for treating the
+month-end concentration as a general phenomenon, and that concentration was the
+whole mechanism story of L.12.
+
+Combined with what was already known — 259 formation days, an effect that
+declines monotonically the further from month-end you look, and the general
+decay of short-horizon anomalies — the honest status of the `rlcc` month-end
+book is **an interesting US result that failed its first out-of-sample test.**
+
+**A separate finding, untested and not to be treated as a result.** The
+underlying close-location reversal signal shows general (non-month-end) power in
+Australia (t 6.09) and Japan (t 3.13) on ordinary days. That is a *different*
+claim from the one tested here, it emerged from looking at the data, and it
+would need its own pre-registration and its own out-of-sample markets before it
+means anything. It is recorded so it is not lost, not so it can be traded.
+
+### The lockbox
+
+**Still sealed and now unspendable on this candidate** — Japan was one of the
+three markets tested, so the NKY panel is no longer untouched for `rlcc`. That
+is the correct trade: three interpretable markets bought more than one
+ambiguous shot would have.
+
+### Caveats
+
+- These panels appear built from current index membership, so both legs are
+  drawn from survivors. A long/short is far less exposed than a long-only book,
+  but absolute levels should be read as optimistic.
+- Cross-sections are 200–400 names against R1000's ~1,500, so deciles hold
+  20–40 names and are noisier.
+- Australia's data ends 2020; its 191 months exclude the recent period entirely.
+- Prices are local-currency and close-to-close, so dividends are missing —
+  which largely cancels in a long/short.
