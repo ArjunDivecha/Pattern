@@ -66,16 +66,27 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SIG = (ROOT / "runs" / "experiments" / "stage1_baselines"
                / "baseline_signals.parquet")
+DEFAULT_OHLCV = ROOT / "data" / "r1000_ohlcv_spliced.parquet"
+DEFAULT_CLASS = ROOT / "data" / "r1000_classifications.parquet"
 
 # oriented so that HIGHER = expected buy, matching baseline_gauntlet.py
 BASELINES = ["rev_1m", "rev_5d", "mom_12_1", "vol_60d"]
-SIGN = {"rev_1m": -1, "rev_5d": -1, "mom_12_1": +1, "vol_60d": -1}
+SIGN = {"rev_1m": -1, "rev_5d": -1, "mom_12_1": +1, "vol_60d": -1,
+        "log_dv": +1}
 
+# `log_dv` (60-day mean dollar volume, logged) is the size/liquidity control.
+# Sector is handled separately as dummies, since it is categorical.
 NEUTRALIZE_SETS = {
     "resid_vol":        ["vol_60d"],
     "resid_rev1m":      ["rev_1m"],
     "resid_vol_rev1m":  ["vol_60d", "rev_1m"],
     "resid_all":        BASELINES,
+    "resid_all_size":   BASELINES + ["log_dv"],
+}
+# variants that additionally project out sector dummies
+SECTOR_SETS = {
+    "resid_all_sector":       BASELINES,
+    "resid_all_size_sector":  BASELINES + ["log_dv"],
 }
 
 
@@ -112,6 +123,10 @@ def ols(X: np.ndarray, y: np.ndarray) -> np.ndarray | None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--signals", type=Path, default=DEFAULT_SIG)
+    ap.add_argument("--ohlcv", type=Path, default=DEFAULT_OHLCV,
+                    help="source of the size/liquidity control (dv_60d)")
+    ap.add_argument("--classifications", type=Path, default=DEFAULT_CLASS,
+                    help="BICS sector map for the sector dummies")
     ap.add_argument("--out-dir", type=Path, required=True)
     ap.add_argument("--min-names", type=int, default=50)
     ap.add_argument("--min-history-months", type=int, default=36,
@@ -125,8 +140,40 @@ def main() -> None:
     print(f"rows {len(df):,}  months {df.end_date.nunique()}  "
           f"{df.end_date.min().date()} -> {df.end_date.max().date()}")
 
+    # ── size/liquidity control ──────────────────────────────────────────────
+    o = pd.read_parquet(args.ohlcv, columns=["Ticker", "Date", "Close", "Volume"])
+    o["Date"] = pd.to_datetime(o["Date"])
+    o = o.sort_values(["Ticker", "Date"])
+    o["dv"] = o["Close"] * o["Volume"]
+    o["dv_60d"] = o.groupby("Ticker")["dv"].transform(
+        lambda s: s.rolling(60, min_periods=15).mean())
+    o = (o[["Ticker", "Date", "dv_60d"]]
+         .rename(columns={"Ticker": "ticker", "Date": "end_date"}))
+    df = df.merge(o, on=["ticker", "end_date"], how="left")
+    df["log_dv"] = np.log(df["dv_60d"].where(df["dv_60d"] > 0))
+    print(f"  size control  : log_dv present on {df.log_dv.notna().mean()*100:.1f}% of rows")
+
+    # ── sector control (static map; sector is near-constant per name) ────────
+    SECTOR_COL = "bics_level_1"
+    sectors, sector_dummies = None, []
+    if args.classifications.exists():
+        cl = pd.read_parquet(args.classifications, columns=["ticker", SECTOR_COL])
+        df = df.merge(cl, on="ticker", how="left")
+        cov = df[SECTOR_COL].notna().mean() * 100
+        sectors = sorted(df[SECTOR_COL].dropna().unique())
+        # drop one level as the reference category to avoid collinearity with
+        # the intercept
+        for s in sectors[1:]:
+            col = f"sec_{s.replace(' ', '_').replace('&', 'and')}"
+            df[col] = (df[SECTOR_COL] == s).astype(float)
+            sector_dummies.append(col)
+        print(f"  sector control: {len(sectors)} BICS-1 sectors, "
+              f"{cov:.1f}% of rows mapped, {len(sector_dummies)} dummies")
+    else:
+        print("  sector control: classifications file missing — SKIPPED")
+
     # ── rank-normalize everything, per formation date ───────────────────────
-    cols = ["p_up_mean"] + BASELINES
+    cols = ["p_up_mean"] + BASELINES + ["log_dv"]
     for c in cols:
         oriented = df[c] * (SIGN.get(c, 1))
         df[f"rn_{c}"] = (oriented.groupby(df["end_date"], group_keys=False)
@@ -137,7 +184,7 @@ def main() -> None:
     dates = sorted(df["end_date"].unique())
 
     # ── 1. Fama-MacBeth ─────────────────────────────────────────────────────
-    fm_uni, fm_multi = [], []
+    fm_uni, fm_multi, fm_full = [], [], []
     for dt, g in df.groupby("end_date"):
         g = g.dropna(subset=["r_simple", "rn_p_up_mean"] + [f"rn_{b}" for b in BASELINES])
         if len(g) < args.min_names:
@@ -156,6 +203,18 @@ def main() -> None:
             fm_multi.append({"end_date": dt,
                              **dict(zip(["p_up"] + BASELINES, bm[1:]))})
 
+        # full controls: baselines + size/liquidity + sector dummies. If p_up
+        # survives THIS, the residual is not an unmeasured factor bet.
+        gf = g.dropna(subset=["rn_log_dv"]) if "rn_log_dv" in g else g.iloc[0:0]
+        if len(gf) >= args.min_names:
+            parts = ([np.ones(len(gf)), gf["rn_p_up_mean"].to_numpy()]
+                     + [gf[f"rn_{b}"].to_numpy() for b in BASELINES]
+                     + [gf["rn_log_dv"].to_numpy()]
+                     + [gf[c].to_numpy() for c in sector_dummies])
+            bf = ols(np.column_stack(parts), gf["r_simple"].to_numpy())
+            if bf is not None:
+                fm_full.append({"end_date": dt, "p_up": bf[1]})
+
     uni = pd.DataFrame(fm_uni)
     multi = pd.DataFrame(fm_multi)
 
@@ -169,8 +228,11 @@ def main() -> None:
                         "months": int(np.isfinite(v).sum())})
         return pd.DataFrame(out)
 
-    fm = pd.concat([fm_table(uni, "univariate"),
-                    fm_table(multi, "multivariate")], ignore_index=True)
+    full = pd.DataFrame(fm_full)
+    tabs = [fm_table(uni, "univariate"), fm_table(multi, "multivariate")]
+    if len(full):
+        tabs.append(fm_table(full, "full (+size+sector)"))
+    fm = pd.concat(tabs, ignore_index=True)
     print("\n=== 1. Fama-MacBeth: 20d forward SIMPLE return on rank-normalized signals ===")
     print("    coefficient = return spread (%) from bottom to top of the signal's rank range")
     print(fm.to_string(index=False))
@@ -219,7 +281,28 @@ def main() -> None:
     print(f"  usable months {n_used} of {len(dates)} "
           f"(first {args.min_history_months} reserved for burn-in)")
 
-    variants = list(NEUTRALIZE_SETS) + ["resid_all_causal"]
+    if sector_dummies:
+        print("\n=== 2b. Variants that also project out sector ===")
+        for name, subset in SECTOR_SETS.items():
+            vals = np.full(len(df), np.nan)
+            for dt, g in df.groupby("end_date"):
+                need = ["rn_p_up_mean"] + [f"rn_{b}" for b in subset]
+                gg = g.dropna(subset=need)
+                if len(gg) < args.min_names:
+                    continue
+                X = np.column_stack([np.ones(len(gg))]
+                                    + [gg[f"rn_{b}"].to_numpy() for b in subset]
+                                    + [gg[c].to_numpy() for c in sector_dummies])
+                b = ols(X, gg["rn_p_up_mean"].to_numpy())
+                if b is None:
+                    continue
+                vals[gg.index.to_numpy()] = gg["rn_p_up_mean"].to_numpy() - X @ b
+            df[name] = vals
+            print(f"  {name:24s} {np.isfinite(vals).sum():,} rows")
+
+    variants = (list(NEUTRALIZE_SETS)
+                + ([*SECTOR_SETS] if sector_dummies else [])
+                + ["resid_all_causal"])
 
     # correlation of each variant with raw p_up -- how much was removed
     print("\n=== How much of raw p_up survives each neutralization? ===")
@@ -232,6 +315,14 @@ def main() -> None:
         corr_rows.append({"variant": v, "mean_rank_corr_with_p_up": round(float(c.mean()), 4)})
     corr_tab = pd.DataFrame(corr_rows)
     print(corr_tab.to_string(index=False))
+
+    if sector_dummies:
+        tilt = (df.dropna(subset=["rn_p_up_mean", SECTOR_COL])
+                  .groupby(SECTOR_COL)["rn_p_up_mean"].mean()
+                  .sort_values(ascending=False))
+        print("\n=== p_up's average sector tilt (rank-normalized, 0 = neutral) ===")
+        for k, v in tilt.items():
+            print(f"  {k:26s} {v:+.4f}")
 
     keep = ["ticker", "end_date", "forward_return", "p_up_mean"] + BASELINES + variants
     df[keep].to_parquet(args.out_dir / "neutralized_signals.parquet", index=False)

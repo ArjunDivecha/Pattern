@@ -1579,3 +1579,87 @@ signal **as deployed** and wrong about the signal **as available**:
 - `scripts/neutralize_p_up.py`
 - `runs/experiments/stage1b_neutralize/{neutralized_signals.parquet, combo_signals.parquet, fama_macbeth.xlsx}`
 - `runs/experiments/stage1b_eval/<variant>/signal_card.{xlsx,json}`
+
+## L.5  Is the residual real skill, or an unmeasured factor bet?
+
+L.4 neutralized against four price-based baselines only. That is not "all
+factors" — the residual could still be loading on size, liquidity or sector.
+`scripts/neutralize_p_up.py` now also controls for `log(dv_60d)`
+(size/liquidity) and 10 BICS-level-1 sector dummies.
+
+### The CNN's sector tilt is the volatility tilt in disguise
+
+Average rank-normalized `p_up` by sector (0 = neutral):
+
+| Favoured | | Avoided | |
+|---|---:|---|---:|
+| Real Estate | +0.032 | Communications | −0.031 |
+| Utilities | +0.030 | Health Care | −0.021 |
+| Financials | +0.026 | Consumer Discretionary | −0.019 |
+| Industrials | +0.011 | Technology | −0.018 |
+
+The model leans toward Real Estate, Utilities and Financials — the classic
+low-volatility, high-payout sectors — and away from Communications, Health
+Care and Tech. That is the same low-vol preference found in L.4, expressed
+sectorally. The tilts are individually small (±6% of the rank range), which is
+consistent with neutralization changing the ranking by only a few percent while
+changing the return a lot.
+
+### Fama-MacBeth survives full controls
+
+| Spec | p_up coef (%) | NW t |
+|---|---:|---:|
+| univariate | 0.113 | 0.76 |
+| + 4 baselines | 0.326 | 3.07 |
+| **+ baselines + size + sector** | **0.330** | **3.40** |
+
+Adding size and sector does not weaken p_up — it slightly strengthens it. Over
+the full sample, the incremental content is **not** a size or sector bet.
+
+### But the recent period does not survive
+
+Decile LS, progressively stricter neutralization:
+
+| Neutralized against | Full | Since 2015 | **Since 2020** |
+|---|---|---|---|
+| baselines | 5.60% / t 3.72 | 3.97% / t 1.80 | **5.69% / t 1.63** |
+| + size | 5.05% / t 3.50 | 3.10% / t 1.44 | 3.32% / t 1.00 |
+| + sector | 5.11% / t 3.85 | 2.71% / t 1.35 | 2.68% / t 0.84 |
+| **+ size + sector** | **4.65% / t 3.57** | 2.40% / t 1.20 | **0.54% / t 0.25** |
+
+**Full sample: robust.** Every variant lands between +4.7% and +5.6% with
+t 3.5–3.85. Stripping size and sector costs about a percentage point and the
+significance is untouched.
+
+**Since 2020: it disappears.** Fully neutralized, the signal falls to +0.54%
+(Sharpe 0.11, t 0.25). A large share of the recent apparent performance is
+attributable to size and sector tilts rather than to chart-reading.
+
+### How to read that honestly
+
+Both directions are underpowered. Nothing in the since-2020 column reaches
+t = 2 in *any* specification, so 63 months cannot distinguish "+5.7% and real"
+from "+0.5% and nothing." The monotone decay as controls are added is a warning
+sign, not a proof.
+
+The defensible summary:
+
+- Over 27 years the CNN carries genuine predictive content that survives every
+  control tested (FM t 3.40) — this is the strongest evidence the project has.
+- Over the last 6 years that content is indistinguishable from a size/sector
+  bet, and the sample is too short to settle it either way.
+- Only forward evidence resolves this, which is an argument for paper-tracking
+  the neutralized signal rather than for deploying or killing it.
+
+### Implication for the Tracker book
+
+Tracking `resid_all` (baselines only) risks tracking a size/sector bet and
+learning nothing from a good result. Tracking `resid_all_size_sector` tests the
+defensible claim — if *that* works forward, it is chart-reading. Running both
+as separate sleeves costs nothing and turns the ambiguity into a live
+experiment.
+
+### Artefacts
+
+- `runs/experiments/stage1c_extended/{neutralized_signals.parquet, fama_macbeth.xlsx}`
+- `runs/experiments/stage1c_eval/<variant>/signal_card.{xlsx,json}`
