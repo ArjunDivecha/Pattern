@@ -15,8 +15,6 @@ CSV (OHLCV + AdjClose)
   → load_data()           # pattern/data/loader.py — tidy DataFrame + Return column
   → compute_labels()      # pattern/data/loader.py — y = 1 if 20-day fwd return > 0
   → get_splits()           # pattern/data/splits.py — debug / expanding / rolling
-  #
-  # NOTE: pattern/data/{loader,splits}.py are NOT committed to this repo (see Data Layer).
   → build_cache()          # pattern/imaging/cache.py — memmap images.npy + index.parquet
   → train_model() × 5      # pattern/train/loop.py — 5-seed ensemble with early stopping
   → predict()              # pattern/train/loop.py — ensemble P(up), logits, embeddings
@@ -49,14 +47,14 @@ All behavior is driven by a Pydantic `Config` model loaded from YAML via `Config
 
 ## Data Layer
 
-> **Source gap:** The `pattern/data/` package (`loader.py`, `splits.py`) is imported across the codebase but is **not present in the repository** (not tracked by git, not gitignored, not present anywhere on disk). `import pattern.data.loader` raises `ModuleNotFoundError`. The functions below are the documented intended API inferred from the import sites (`pattern/cli.py`, `pattern/imaging/cache.py`, `pattern/train/dataset.py`, `webapp/scorer.py`, `scripts/score_live.py`, and tests) and their docstrings; they are not verifiable against source because the files are missing. Until `pattern/data/` is added, the CLI pipeline, tests, the webapp, and the [daily job](workflows.md#daily-publishing-job-scriptsrun_dailysh)'s scoring step cannot run. See [Testing](testing.md) and [Operations](operations.md#webapp-deployment) for the runtime consequences.
-
 ### Loader (`pattern/data/loader.py`)
 
-- `load_data(csv_path, date_format, min_history_days)` — Reads the OHLCV CSV, computes `Return` from `AdjClose` (Bloomberg total-return index), drops tickers with insufficient history. Returns a DataFrame sorted by `(Ticker, Date)`.
-- `compute_labels(df, horizon)` — For each `(ticker, date)`, computes the cumulative log return over the next `horizon` days. Label = 1 if positive, 0 if negative. Stores `forward_return` and `label` columns.
-- `build_ticker_index(df)` — Creates a per-ticker dict of sub-DataFrames for fast window lookups.
-- `get_window(tdf, end_date, window, lookback)` — Extracts the OHLCV + TRI arrays for a single chart image.
+Reads and prepares the OHLCV database for image generation and labelling. Returns the Bloomberg total-return index (`AdjClose`) as-is — the renderer uses it for normalized closes, the labeller for forward returns.
+
+- `load_data(csv_path, date_format, min_history_days)` — Reads the OHLCV CSV (requires `Ticker, Date, Open, High, Low, Close, Volume`; optional `AdjClose`), coerces to numeric, computes the daily total return `Return = AdjClose_t / AdjClose_{t-1} - 1` per ticker, and drops tickers with fewer than `min_history_days` valid rows. Returns a DataFrame sorted by `(Ticker, Date)`.
+- `compute_labels(df, horizon)` — For each `(ticker, date)`, computes `forward_return = log(AdjClose_{t+horizon} / AdjClose_t)` and `label = 1 if forward_return > 0 else 0`. Rows where the forward return cannot be computed (insufficient future history) are dropped.
+- `build_ticker_index(df)` — Creates a per-ticker dict of sub-DataFrames (reset-indexed) for O(1) window lookups.
+- `get_window(ticker_df, end_date, window, lookback)` — Extracts `(ohlcv, tri)` arrays for a single chart image ending at `end_date`. Returns `(float64 (window+lookback, 5), float64 (window+lookback,))`, or `None` if `end_date` is absent or history is insufficient.
 
 ### Splits (`pattern/data/splits.py`)
 
@@ -205,5 +203,8 @@ Per-window outputs:
 - `window_NN_predictions.parquet` — ticker, end_date, label, forward_return, per-seed `p_up_*`, `p_up_mean`, `p_up_std`, logits, rank_pct, decile, window
 - `window_NN_features.npz` — per-seed logits `(K,N,2)`, embeddings `(K,N,256)`, ensemble-mean embedding `(N,256)`
 - `window_stats.csv` — train/val/test years, sample counts, wall seconds, peak GPU memory
+
+The final `predictions.parquet` (concatenated across all windows) is written when all windows are processed by a single invocation (not sharded).
+onds, peak GPU memory
 
 The final `predictions.parquet` (concatenated across all windows) is written when all windows are processed by a single invocation (not sharded).

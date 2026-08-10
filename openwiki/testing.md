@@ -8,9 +8,7 @@ description: "Test coverage for the Pattern pipeline: pixel-exact renderer tests
 
 ## Test Suite
 
-All tests live in `tests/` and use `pytest`. They are fully self-contained — no external data files are read or written. All test data is generated synthetically in memory.
-
-> **Cannot run in the current tree:** `tests/test_labeling.py` and `tests/test_splits.py` import from `pattern.data.loader` and `pattern.data.splits`, which are **not present in the repository** (see [Architecture — Data Layer](architecture.md#loader-patterndataloaderpy)). `import pattern.data.loader` raises `ModuleNotFoundError`, so `pytest tests/` collects nothing for these files until `pattern/data/` is restored. The coverage descriptions below document the intended behavior of these tests against the missing modules.
+All tests live in `tests/` and use `pytest`. They are fully self-contained — no external data files are read or written. All test data is generated synthetically in memory. The suite depends only on `numpy`, `pandas`, and `pytest` (plus `pattern.config` for `test_splits.py`); it does not require the image cache, a GPU, or any OHLCV database.
 
 ### Running Tests
 
