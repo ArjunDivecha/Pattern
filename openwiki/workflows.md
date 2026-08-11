@@ -6,7 +6,8 @@ description: "End-to-end workflows for the Pattern pipeline: Bloomberg data buil
 
 # Workflows
 
-This page covers the end-to-end workflows: data building, training (debug and production), multi-GPU orchestration, backtesting, live scoring, pathway merging, and the daily publishing job that feeds the Tracker paper book.
+<!-- openwiki: broken internal link [operations.md#tracker-sleeves] heading anchor "tracker-sleeves" does not exist in "operations.md". Fix the href or restore the target, then delete this comment. -->
+This page covers the end-to-end workflows: data building, training (debug and production), multi-GPU orchestration, backtesting, live scoring, pathway merging, signal evaluation and research workflows (the Addendum L kill-or-confirm review), and the daily publishing job that feeds the Tracker paper book. The research workflows feed a separate set of Tracker sleeves documented in [Operations](operations.md#tracker-sleeves).
 
 ---
 
