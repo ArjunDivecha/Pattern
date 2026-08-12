@@ -31,7 +31,6 @@ what decayed.
 - Before re-running training, tuning hyperparameters, or proposing a new
   signal variant on this panel — the pre-registered verdict (§L.9) is **no
   promotion**, and the lockbox is spent.
-<!-- openwiki: broken internal link [workflows.md#signal-evaluation-scriptsevaluate_signalpy] heading anchor "signal-evaluation-scriptsevaluate_signalpy" does not exist in "workflows.md". Fix the href or restore the target, then delete this comment. -->
 - When adding a new ranking signal — score it with the [unified harness](workflows.md#signal-evaluation-scriptsevaluate_signalpy), not a bespoke backtest, so numbers stay comparable.
 - When touching split/purge logic — the gap is frozen at production width by
 <!-- openwiki: broken internal link [testing.md#tests-test_purge_guardpy--leakage-guard] heading anchor "tests-test_purge_guardpy--leakage-guard" does not exist in "testing.md". Fix the href or restore the target, then delete this comment. -->
@@ -84,7 +83,6 @@ control.
 
 ## L.2 — One Measuring Stick
 
-<!-- openwiki: broken internal link [workflows.md#signal-evaluation-scriptsevaluate_signalpy] heading anchor "signal-evaluation-scriptsevaluate_signalpy" does not exist in "workflows.md". Fix the href or restore the target, then delete this comment. -->
 [`scripts/evaluate_signal.py`](workflows.md#signal-evaluation-scriptsevaluate_signalpy)
 scores **any** ranking signal identically: portfolio (simple-return)
 arithmetic as the headline, the mean-log number kept only as a labelled
@@ -110,7 +108,6 @@ The paper names weekly reversal (WSTR) and TREND as its closest competitors,
 yet no simple-signal comparison had ever been run on R1000 — every backtest in
 this repo ranks by `p_up` and uses momentum/vol only to define buckets.
 
-<!-- openwiki: broken internal link [workflows.md#signal-evaluation-scriptsevaluate_signalpy] heading anchor "signal-evaluation-scriptsevaluate_signalpy" does not exist in "workflows.md". Fix the href or restore the target, then delete this comment. -->
 [`scripts/baseline_gauntlet.py`](workflows.md#signal-evaluation-scriptsevaluate_signalpy)
 builds, at each month-end: `rev_1m` (STR), `rev_5d` (WSTR), `mom_12_1`,
 `vol_60d`, and a `combo` blend — then tests IC, head-to-head, and double-sorts.
@@ -156,7 +153,6 @@ neutralize `p_up` against the baseline factors — which costs no GPU time.
 
 ## L.4–L.5 — Factor Neutralization
 
-<!-- openwiki: broken internal link [workflows.md#signal-evaluation-scriptsevaluate_signalpy] heading anchor "signal-evaluation-scriptsevaluate_signalpy" does not exist in "workflows.md". Fix the href or restore the target, then delete this comment. -->
 [`scripts/neutralize_p_up.py`](workflows.md#signal-evaluation-scriptsevaluate_signalpy)
 asks three questions the portfolio test alone cannot answer:
 
@@ -234,7 +230,6 @@ rather than for deploying or killing it.
 
 ## L.6 — Everything Happened Before 2005
 
-<!-- openwiki: broken internal link [workflows.md#signal-evaluation-scriptsevaluate_signalpy] heading anchor "signal-evaluation-scriptsevaluate_signalpy" does not exist in "workflows.md". Fix the href or restore the target, then delete this comment. -->
 [`scripts/plot_signal_comparison.py`](workflows.md#signal-evaluation-scriptsevaluate_signalpy)
 plots the cumulative books. Two things are immediately visible that no summary
 statistic in L.3–L.5 revealed.
@@ -345,7 +340,6 @@ close location, volume texture, MA relationship), on the CNN's exact
 expanding-window schedule. Purge audited at 40 trading days in every window.
 Early stopping on **validation IC** for all labels.
 
-<!-- openwiki: broken internal link [workflows.md#signal-evaluation-scriptsevaluate_signalpy] heading anchor "signal-evaluation-scriptsevaluate_signalpy" does not exist in "workflows.md". Fix the href or restore the target, then delete this comment. -->
 [`scripts/gbdt_label_bakeoff.py`](workflows.md#signal-evaluation-scriptsevaluate_signalpy)
 tests four pre-registered labels: L0 (binary sign, the production control),
 L1 (market-excess sign), L2 (cross-sectional rank), L3 (factor-neutral rank).
@@ -398,7 +392,6 @@ Recorded as amendments A1 and A2 in PREREGISTRATION.md.
 
 ## L.12 — `rlcc` Parameter Sweep
 
-<!-- openwiki: broken internal link [workflows.md#signal-evaluation-scriptsevaluate_signalpy] heading anchor "signal-evaluation-scriptsevaluate_signalpy" does not exist in "workflows.md". Fix the href or restore the target, then delete this comment. -->
 [`scripts/rlcc_sweep.py`](workflows.md#signal-evaluation-scriptsevaluate_signalpy)
 swept 144 variants before spending the NKY lockbox on `rlcc`. Anti-overfitting
 design: every variant reported on a time split (tune 2005–2015, validate
@@ -440,7 +433,6 @@ turnover. The L.11 headline (+6.18%/yr net @8bp, t 3.41, 2005+) stands.
 
 ## L.13 — International Replication: FAILS
 
-<!-- openwiki: broken internal link [workflows.md#signal-evaluation-scriptsevaluate_signalpy] heading anchor "signal-evaluation-scriptsevaluate_signalpy" does not exist in "workflows.md". Fix the href or restore the target, then delete this comment. -->
 Rather than spend the single NKY lockbox shot, [`scripts/rlcc_international.py`](workflows.md#signal-evaluation-scriptsevaluate_signalpy)
 tested `rlcc` on **three developed markets never touched by this review**:
 Australia (407 names), UK (525), Japan (224). Pre-committed before running —
@@ -550,9 +542,7 @@ promotable result:
   test (`stress_rlcc.py`) are implemented; `mark_multi_signal.py` publishes
   additional Tracker sleeves.
 
-<!-- openwiki: broken internal link [workflows.md#signal-evaluation-scriptsevaluate_signalpy] heading anchor "signal-evaluation-scriptsevaluate_signalpy" does not exist in "workflows.md". Fix the href or restore the target, then delete this comment. -->
 Both depend on the same [unified signal harness](workflows.md#signal-evaluation-scriptsevaluate_signalpy)
 and are governed by the same "treat the implementation-lag test as mandatory"
-<!-- openwiki: broken internal link [workflows.md#signal-evaluation-scriptsevaluate_signalpy] heading anchor "signal-evaluation-scriptsevaluate_signalpy" does not exist in "workflows.md". Fix the href or restore the target, then delete this comment. -->
 discipline established in §L.8–L.11. See [Workflows](workflows.md#signal-evaluation-scriptsevaluate_signalpy)
 for their script-level entry points.

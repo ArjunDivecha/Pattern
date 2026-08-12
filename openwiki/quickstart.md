@@ -81,8 +81,9 @@ cd webapp && uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ## Documentation Sections
 
 - [Architecture](architecture.md) — Core pipeline design: data loading, image rendering, CNN model, training loop, backtest engine, and config system
-- [Workflows](workflows.md) — End-to-end workflows: training (debug/production), multi-GPU orchestration, backtesting, live scoring, data building, price splice, Tracker paper book, daily publishing job
+- [Workflows](workflows.md) — End-to-end workflows: training (debug/production), multi-GPU orchestration, backtesting, live scoring, data building, price splice, signal evaluation and Addendum L research scripts, Tracker paper book, daily publishing job
 - [Domain & Strategy](domain.md) — The financial strategy, research findings, cross-sectional slicing, trash-tier/liquid-grid analysis, ETF deployment attempts, cost/capacity conclusions, the $5 price floor and return-convention corrections (Addenda J–K), and the Tracker paper book
+- [Kill-or-Confirm Review (Addendum L)](research.md) — The leakage-guard audit, unified signal harness, baseline gauntlet, factor neutralization, pre-registered GBDT label bake-off, Dixon geometry vetting, and the `rlcc` close-location signal that failed out-of-sample replication
 - [Operations](operations.md) — Configs, run directory layout, image cache, hardware setup, daily publishing job, webapp deployment, data files
 - [Testing](testing.md) — Test coverage, what each test validates, and how to run them
 
@@ -110,13 +111,14 @@ cd webapp && uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | Change area / intent | Wiki page | Source entry points | Important symbols / types | Focused tests | Minimal validation |
 |---|---|---|---|---|---|
 | Renderer / image geometry | [Architecture](architecture.md) | `pattern/imaging/renderer.py` | `render_window`, `render_batch` | `tests/test_renderer.py` | `pytest tests/test_renderer.py -v` |
-| Label / split logic (`pattern/data/`) | [Architecture](architecture.md), [Testing](testing.md) | `pattern/data/{loader,splits}.py` | `load_data`, `compute_labels`, `debug_split`, `balance_labels` | `tests/test_labeling.py`, `tests/test_splits.py` | `pytest tests/test_labeling.py tests/test_splits.py -v` |
+| Label / split logic (`pattern/data/`) | [Architecture](architecture.md), [Testing](testing.md) | `pattern/data/{loader,splits}.py`, `pattern/cli.py` | `load_data`, `compute_labels`, `debug_split`, `balance_labels`, `purge_days` | `tests/test_labeling.py`, `tests/test_splits.py`, `tests/test_purge_guard.py` | `pytest tests/test_labeling.py tests/test_splits.py tests/test_purge_guard.py -v` |
 | CNN architecture | [Architecture](architecture.md) | `pattern/models/cnn.py`, `pattern/models/blocks.py` | `ChartCNN`, `ConvBlock` | (none; training convergence on debug config) | `python -m pattern.cli train --config configs/debug.yaml` (blocked) |
 | Backtest metrics / price floor | [Architecture](architecture.md), [Domain](domain.md) | `pattern/backtest/{deciles,metrics,report}.py`, `scripts/backtest_trash_tier.py`, `scripts/backtest_liquid_grid.py` | `newey_west_variance`, `summarize_series`, `--min-price` | (none; compare README §J.3) | `python scripts/backtest_trash_tier.py --min-price 5.0` |
 | Tracker paper book / daily job | [Workflows](workflows.md), [Operations](operations.md) | `scripts/mark_book.py`, `scripts/run_daily.sh`, `scripts/com.arjundivecha.pattern-daily.plist` | `MIN_PRICE`, `track` column, `PATTERN DAILY OK` | (none; end-to-end) | `zsh scripts/run_daily.sh` (look for `PATTERN DAILY OK`) |
 | Price splice / staleness | [Workflows](workflows.md) | `scripts/splice_daily_update.py`, `scripts/score_live.py` | `tradeable` flag, `--tickers-csv`, `--tail-days` | (none) | `python scripts/splice_daily_update.py --csv` |
 | Config schema | [Architecture](architecture.md) | `pattern/config.py` | `Config`, `Config.from_yaml` | All tests load config | `python -c "from pattern.config import Config; Config.from_yaml('configs/debug.yaml')"` |
 | Webapp | [Workflows](workflows.md), [Operations](operations.md) | `webapp/main.py`, `webapp/scorer.py` | FastAPI `app`, `score_ticker` | (none; manual) | `cd webapp && uvicorn main:app` |
+| Signal evaluation / Addendum L research | [Workflows](workflows.md#signal-evaluation-scriptsevaluate_signalpy), [Kill-or-Confirm Review](research.md) | `scripts/evaluate_signal.py`, `scripts/baseline_gauntlet.py`, `scripts/neutralize_p_up.py`, `scripts/gbdt_label_bakeoff.py`, `scripts/rlcc_sweep.py` | `evaluate_signal`, `MIN_PRICE` | `tests/test_purge_guard.py`, `tests/test_strawman_frozen.py` | `pytest tests/test_purge_guard.py tests/test_strawman_frozen.py -v` |
 | Strategy / research findings | [Domain](domain.md) | `README.md` addenda A–K, `strategy_memo.md`, `scripts/backtest_*.py` | — | (none) | — |
 
 ---
