@@ -1,0 +1,702 @@
+<title>Where the Candle Closed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&family=JetBrains+Mono:wght@400;700&display=swap">
+
+<style>
+/* ------------------------------------------------------------------
+   Deliberate single-theme design: light-committed.
+   Every colour is painted explicitly so the page holds its own ground
+   regardless of the viewer's theme.
+   ------------------------------------------------------------------ */
+:root{
+  --paper:#ECEDEF;
+  --card:#FFFFFF;
+  --ink:#101317;
+  --muted:#646B75;
+  --rule:#D3D7DC;
+  --long:#10664E;
+  --short:#B8362A;
+
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Newsreader",Georgia,"Times New Roman",serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+
+  --s1:.5rem; --s2:1rem; --s3:1.5rem; --s4:2.5rem; --s5:4rem; --s6:6rem;
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--f-body);
+  font-size:1.125rem;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+
+.wrap{
+  max-width:1000px;
+  margin:0 auto;
+  padding:0 var(--s3);
+}
+
+/* ---------- type ---------- */
+h1,h2,h3,.eyebrow,.big,.stat-n,.step-n{font-family:var(--f-display)}
+
+h1{
+  font-size:clamp(3rem,10vw,6.5rem);
+  font-weight:800;
+  line-height:.92;
+  letter-spacing:-.035em;
+  margin:0;
+  text-wrap:balance;
+}
+
+h2{
+  font-size:clamp(1.9rem,4.6vw,3rem);
+  font-weight:800;
+  line-height:1.02;
+  letter-spacing:-.03em;
+  margin:0;
+  text-wrap:balance;
+}
+
+h3{
+  font-size:1.15rem;
+  font-weight:600;
+  letter-spacing:-.01em;
+  margin:0;
+}
+
+.eyebrow{
+  font-size:.75rem;
+  font-weight:600;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--muted);
+  margin:0;
+}
+
+p{margin:0;max-width:62ch}
+.lede{font-size:1.35rem;line-height:1.5;color:var(--ink)}
+.sub{color:var(--muted)}
+.big{
+  font-family:var(--f-display);
+  font-size:clamp(1.5rem,3.6vw,2.25rem);
+  font-weight:600;
+  line-height:1.18;
+  letter-spacing:-.02em;
+  max-width:20ch;
+}
+strong{font-weight:500;background:linear-gradient(transparent 62%,#FFE08A 62%)}
+.mono{font-family:var(--f-mono);font-size:.94em}
+
+/* ---------- layout ---------- */
+section{padding:var(--s6) 0;border-top:1px solid var(--rule)}
+section:first-of-type{border-top:0}
+.stack{display:flex;flex-direction:column;gap:var(--s3)}
+.stack-lg{display:flex;flex-direction:column;gap:var(--s5)}
+.stack-sm{display:flex;flex-direction:column;gap:var(--s1)}
+
+.panel{
+  background:var(--card);
+  border:1px solid var(--rule);
+  padding:var(--s4);
+  display:flex;
+  flex-direction:column;
+  gap:var(--s3);
+}
+
+.figure{overflow-x:auto}
+.figure svg{display:block;width:100%;height:auto;min-width:520px}
+
+.caption{
+  font-family:var(--f-mono);
+  font-size:.74rem;
+  letter-spacing:.04em;
+  color:var(--muted);
+  text-transform:uppercase;
+}
+
+/* ---------- hero ---------- */
+.hero{padding-top:var(--s5);padding-bottom:var(--s5)}
+.hero-grid{display:flex;flex-direction:column;gap:var(--s4)}
+.rule-heavy{height:6px;background:var(--ink);width:100%}
+
+/* ---------- act marker ---------- */
+.act{display:flex;align-items:baseline;gap:var(--s2);flex-wrap:wrap}
+.act-n{
+  font-family:var(--f-mono);
+  font-size:.74rem;
+  font-weight:700;
+  letter-spacing:.12em;
+  color:var(--card);
+  background:var(--ink);
+  padding:.35em .7em;
+  white-space:nowrap;
+}
+.act-n.warn{background:var(--short)}
+.act-n.good{background:var(--long)}
+
+/* ---------- numbered pipeline ---------- */
+.steps{display:flex;flex-direction:column;gap:0}
+.step{
+  display:grid;
+  grid-template-columns:4.5rem 1fr;
+  gap:var(--s3);
+  padding:var(--s3) 0;
+  border-top:1px solid var(--rule);
+  align-items:start;
+}
+.step:first-child{border-top:0;padding-top:0}
+.step-n{
+  font-size:2.25rem;
+  font-weight:800;
+  line-height:1;
+  letter-spacing:-.04em;
+  color:var(--rule);
+  font-variant-numeric:tabular-nums;
+}
+
+/* ---------- pixel image ---------- */
+.seen{display:grid;grid-template-columns:1fr;gap:var(--s3)}
+@media(min-width:760px){.seen{grid-template-columns:1fr 1fr}}
+.seen figure{margin:0;display:flex;flex-direction:column;gap:var(--s2)}
+canvas{
+  display:block;
+  width:100%;
+  height:auto;
+  image-rendering:pixelated;
+  image-rendering:crisp-edges;
+  background:#000;
+  border:1px solid var(--rule);
+}
+/* the 60x64 input is nearly square - cap it so it sits level with the chart */
+#cnv-cnn{width:auto;height:auto;max-width:100%;max-height:230px;margin:0 auto}
+
+/* ---------- verdict cards ---------- */
+.wrongs{display:flex;flex-direction:column;gap:var(--s2)}
+.wrong{
+  background:var(--card);
+  border:1px solid var(--rule);
+  border-left:5px solid var(--short);
+  padding:var(--s3);
+  display:flex;
+  flex-direction:column;
+  gap:.35rem;
+}
+.wrong h3{color:var(--short)}
+
+/* ---------- numbers ---------- */
+.stats{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:1px;
+  background:var(--rule);
+  border:1px solid var(--rule);
+}
+@media(min-width:760px){.stats{grid-template-columns:repeat(4,1fr)}}
+.stat{background:var(--card);padding:var(--s3);display:flex;flex-direction:column;gap:.15rem}
+.stat-n{
+  font-size:2.1rem;
+  font-weight:800;
+  letter-spacing:-.035em;
+  line-height:1;
+  font-variant-numeric:tabular-nums;
+}
+.stat-l{
+  font-family:var(--f-mono);
+  font-size:.7rem;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+
+/* ---------- formula ---------- */
+.formula{
+  background:var(--ink);
+  color:var(--card);
+  padding:var(--s4) var(--s3);
+  text-align:center;
+  font-family:var(--f-mono);
+  font-size:clamp(1rem,3.4vw,1.9rem);
+  font-weight:700;
+  letter-spacing:-.01em;
+  overflow-x:auto;
+  white-space:nowrap;
+}
+.formula em{font-style:normal;color:#FFC94A}
+
+/* ---------- head-to-head ---------- */
+.versus{display:grid;grid-template-columns:1fr;gap:1px;background:var(--rule);border:1px solid var(--rule)}
+@media(min-width:760px){.versus{grid-template-columns:1fr 1fr}}
+.vs-col{background:var(--card);padding:var(--s4);display:flex;flex-direction:column;gap:var(--s2)}
+.vs-col.win{background:#F4F8F6}
+.vs-tag{
+  font-family:var(--f-mono);font-size:.7rem;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--muted);
+}
+.vs-col.win .vs-tag{color:var(--long)}
+.vs-num{font-family:var(--f-display);font-size:2.6rem;font-weight:800;letter-spacing:-.04em;line-height:1}
+.vs-col.win .vs-num{color:var(--long)}
+
+/* ---------- caveats ---------- */
+.caveats{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--s2)}
+.caveats li{
+  display:grid;grid-template-columns:1.6rem 1fr;gap:var(--s2);
+  padding-bottom:var(--s2);border-bottom:1px solid var(--rule);
+}
+.caveats li:last-child{border-bottom:0}
+.mark{font-family:var(--f-mono);font-weight:700;color:var(--short)}
+
+footer{
+  padding:var(--s5) 0 var(--s6);
+  border-top:6px solid var(--ink);
+  font-family:var(--f-mono);
+  font-size:.78rem;
+  line-height:1.75;
+  color:var(--muted);
+}
+
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+:focus-visible{outline:3px solid var(--long);outline-offset:3px}
+</style>
+
+<div class="wrap">
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="hero-grid">
+    <p class="eyebrow">Pattern &nbsp;·&nbsp; what this repo actually does</p>
+    <h1>Where the candle closed</h1>
+    <div class="rule-heavy"></div>
+    <p class="lede">There are two strategies in this repo. One is a neural network
+    that stares at pictures of stock charts. The other is a single line of
+    arithmetic a child could do.</p>
+    <p class="lede sub">This is the story of how the second one won.</p>
+  </div>
+</section>
+
+<!-- ============ THE RAW MATERIAL ============ -->
+<section class="stack-lg">
+  <div class="stack">
+    <p class="eyebrow">Start here</p>
+    <h2>Every day, a stock leaves four numbers behind</h2>
+    <p>Where it started, the highest it got, the lowest it got, and where it
+    finished. Draw those four numbers and you get a <strong>candle</strong>.
+    Everything below is built out of candles.</p>
+  </div>
+
+  <div class="panel">
+    <div class="figure">
+      <svg viewBox="0 0 800 300" role="img" aria-label="Diagram of a single price candle showing the high, open, close and low of one trading day">
+        <!-- the wick -->
+        <line x1="300" y1="40" x2="300" y2="260" stroke="#101317" stroke-width="3"/>
+        <!-- the body -->
+        <rect x="272" y="90" width="56" height="120" fill="#FFFFFF" stroke="#101317" stroke-width="3"/>
+
+        <!-- HIGH -->
+        <line x1="300" y1="40" x2="560" y2="40" stroke="#D3D7DC" stroke-width="1.5" stroke-dasharray="4 5"/>
+        <circle cx="300" cy="40" r="6" fill="#101317"/>
+        <text x="576" y="36" font-family="Archivo,sans-serif" font-size="21" font-weight="800" fill="#101317">HIGH</text>
+        <text x="576" y="58" font-family="Newsreader,serif" font-size="16" fill="#646B75">best price all day</text>
+
+        <!-- OPEN -->
+        <line x1="272" y1="210" x2="120" y2="210" stroke="#D3D7DC" stroke-width="1.5" stroke-dasharray="4 5"/>
+        <text x="112" y="206" text-anchor="end" font-family="Archivo,sans-serif" font-size="21" font-weight="800" fill="#101317">OPEN</text>
+        <text x="112" y="228" text-anchor="end" font-family="Newsreader,serif" font-size="16" fill="#646B75">where it started</text>
+
+        <!-- CLOSE -->
+        <line x1="328" y1="90" x2="560" y2="90" stroke="#B8362A" stroke-width="2"/>
+        <circle cx="300" cy="90" r="7" fill="#B8362A"/>
+        <text x="576" y="86" font-family="Archivo,sans-serif" font-size="21" font-weight="800" fill="#B8362A">CLOSE</text>
+        <text x="576" y="108" font-family="Newsreader,serif" font-size="16" fill="#646B75">where it finished &mdash; the one that matters</text>
+
+        <!-- LOW -->
+        <line x1="300" y1="260" x2="560" y2="260" stroke="#D3D7DC" stroke-width="1.5" stroke-dasharray="4 5"/>
+        <circle cx="300" cy="260" r="6" fill="#101317"/>
+        <text x="576" y="256" font-family="Archivo,sans-serif" font-size="21" font-weight="800" fill="#101317">LOW</text>
+        <text x="576" y="278" font-family="Newsreader,serif" font-size="16" fill="#646B75">worst price all day</text>
+
+        <!-- range bracket -->
+        <path d="M 200 40 L 186 40 L 186 260 L 200 260" fill="none" stroke="#646B75" stroke-width="1.5"/>
+        <text x="176" y="146" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="13" font-weight="700" fill="#646B75">THE</text>
+        <text x="176" y="166" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="13" font-weight="700" fill="#646B75">RANGE</text>
+      </svg>
+    </div>
+    <p class="caption">One trading day, one candle</p>
+  </div>
+</section>
+
+<!-- ============ ACT ONE ============ -->
+<section class="stack-lg">
+  <div class="stack">
+    <div class="act"><span class="act-n">ACT ONE</span><p class="eyebrow">the expensive idea</p></div>
+    <h2>Teach a computer to read charts the way a doctor reads an X&#8209;ray</h2>
+    <p>This is a replication of a famous 2023 finance paper. The bet: the same
+    machinery that recognises cats in photographs might recognise
+    <em>about-to-go-up</em> in a price chart. Nobody tells it what to look for.
+    It figures that out from millions of examples.</p>
+  </div>
+
+  <div class="panel">
+    <div class="steps">
+      <div class="step"><div class="step-n">1</div>
+        <div class="stack-sm"><h3>Grab 20 days of candles</h3>
+        <p class="sub">One month of trading, for one stock.</p></div></div>
+      <div class="step"><div class="step-n">2</div>
+        <div class="stack-sm"><h3>Draw it as a tiny black-and-white picture</h3>
+        <p class="sub">64 pixels tall, 60 wide. No numbers, no labels &mdash; just a picture.</p></div></div>
+      <div class="step"><div class="step-n">3</div>
+        <div class="stack-sm"><h3>Show five neural networks millions of these</h3>
+        <p class="sub">Five, not one, so a single unlucky model can't run the show.</p></div></div>
+      <div class="step"><div class="step-n">4</div>
+        <div class="stack-sm"><h3>Ask one question: up or down over the next month?</h3>
+        <p class="sub">The answer comes back as a probability &mdash; 0.51, 0.48, 0.53.</p></div></div>
+      <div class="step"><div class="step-n">5</div>
+        <div class="stack-sm"><h3>Buy the top 10%. Bet against the bottom 10%.</h3>
+        <p class="sub">Out of 3,000 stocks, that's 300 on each side.</p></div></div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <h2>This is literally what the machine sees</h2>
+    <p>No prices. No ticker. No news. Just white pixels on black &mdash; the bars,
+    a moving-average line, and volume along the bottom. Blown up here so you can
+    count the pixels.</p>
+  </div>
+
+  <div class="panel">
+    <div class="seen">
+      <figure>
+        <canvas id="cnv-human" width="360" height="216" aria-label="A normal-looking candlestick chart of twenty trading days"></canvas>
+        <figcaption class="caption">What a person would draw</figcaption>
+      </figure>
+      <figure>
+        <canvas id="cnv-cnn" width="60" height="64" aria-label="The same twenty days rendered as a 64 by 60 pixel black and white image, which is the neural network's actual input"></canvas>
+        <figcaption class="caption">What the network is handed &mdash; 60&times;64 pixels</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <div class="stack">
+    <p class="big">And it worked. Beautifully. On the first pass.</p>
+    <div class="stats">
+      <div class="stat"><span class="stat-n">+17.4%</span><span class="stat-l">per year</span></div>
+      <div class="stat"><span class="stat-n">1.22</span><span class="stat-l">sharpe ratio</span></div>
+      <div class="stat"><span class="stat-n">25/28</span><span class="stat-l">years positive</span></div>
+      <div class="stat"><span class="stat-n">+7.99</span><span class="stat-l">t&#8209;statistic</span></div>
+    </div>
+    <p class="sub">The paper replicated cleanly. Which is exactly the moment to start
+    looking for what's wrong.</p>
+  </div>
+</section>
+
+<!-- ============ THE TWIST ============ -->
+<section class="stack-lg">
+  <div class="stack">
+    <div class="act"><span class="act-n warn">THE TWIST</span><p class="eyebrow">three things were wrong</p></div>
+    <h2>The number was real. The money wasn't.</h2>
+  </div>
+
+  <div class="wrongs">
+    <div class="wrong">
+      <h3>1 &nbsp; The winners were penny stocks</h3>
+      <p>The most profitable names turned out to be 30-cent bankruptcy shells.
+      Real on paper, untradeable in life. Putting a <strong>$5 minimum price</strong> on
+      the universe cut the best cell's return from +23.5% to +11.4%.</p>
+    </div>
+    <div class="wrong">
+      <h3>2 &nbsp; The arithmetic flattered it</h3>
+      <p>Returns were averaged in logs. A real portfolio doesn't earn that.
+      Redone the way an actual account compounds: <strong>+11.3% became +4.2%</strong>.
+      Same trades. Honest maths.</p>
+    </div>
+    <div class="wrong">
+      <h3>3 &nbsp; It wasn't predicting what we thought</h3>
+      <p>Asking &ldquo;up or down?&rdquo; quietly taught it to spot
+      <strong>which stocks move a lot</strong> &mdash; not which ones move
+      <em>up</em>. Its skill at forecasting volatility scored 0.097. Its skill at
+      forecasting return: 0.010. Ten times better at the wrong job.</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="big">A very expensive volatility detector, deployed as a stock picker.</p>
+    <p>Worse: a plain decision-tree model, fed 21 hand-written numbers, beat the
+    neural network on the identical task. The pictures weren't earning their keep.
+    After every fix, the honest edge was roughly <strong>+4% a year before costs</strong>
+    &mdash; and about zero after them.</p>
+  </div>
+</section>
+
+<!-- ============ ACT TWO ============ -->
+<section class="stack-lg">
+  <div class="stack">
+    <div class="act"><span class="act-n good">ACT TWO</span><p class="eyebrow">what survived</p></div>
+    <h2>One line of arithmetic</h2>
+    <p>Forget the network. Go back to the candle and ask one question:
+    <strong>where inside today's range did the stock finish?</strong></p>
+  </div>
+
+  <div class="formula">clv = ( <em>Close</em> &minus; Low ) &divide; ( High &minus; Low )</div>
+
+  <div class="panel">
+    <div class="figure">
+      <svg viewBox="0 0 800 340" role="img" aria-label="Three candles showing a close near the high scores 0.95 and is shorted, a close in the middle scores 0.50 and is ignored, and a close near the low scores 0.05 and is bought">
+
+        <!-- ---- candle A: closed at the top ---- -->
+        <line x1="120" y1="60" x2="120" y2="250" stroke="#101317" stroke-width="3"/>
+        <line x1="92" y1="60" x2="148" y2="60" stroke="#646B75" stroke-width="2"/>
+        <line x1="92" y1="250" x2="148" y2="250" stroke="#646B75" stroke-width="2"/>
+        <circle cx="120" cy="72" r="10" fill="#B8362A"/>
+        <text x="120" y="42" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="20" font-weight="700" fill="#B8362A">0.95</text>
+        <text x="120" y="284" text-anchor="middle" font-family="Archivo,sans-serif" font-size="19" font-weight="800" fill="#101317">FINISHED HIGH</text>
+        <text x="120" y="306" text-anchor="middle" font-family="Newsreader,serif" font-size="16" fill="#646B75">buyers were desperate</text>
+        <rect x="52" y="318" width="136" height="22" fill="#B8362A"/>
+        <text x="120" y="334" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="12" font-weight="700" fill="#FFFFFF" letter-spacing="1.5">BET AGAINST IT</text>
+
+        <!-- ---- candle B: closed mid ---- -->
+        <line x1="400" y1="60" x2="400" y2="250" stroke="#101317" stroke-width="3"/>
+        <line x1="372" y1="60" x2="428" y2="60" stroke="#646B75" stroke-width="2"/>
+        <line x1="372" y1="250" x2="428" y2="250" stroke="#646B75" stroke-width="2"/>
+        <circle cx="400" cy="155" r="10" fill="#646B75"/>
+        <text x="400" y="42" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="20" font-weight="700" fill="#646B75">0.50</text>
+        <text x="400" y="284" text-anchor="middle" font-family="Archivo,sans-serif" font-size="19" font-weight="800" fill="#101317">FINISHED MID</text>
+        <text x="400" y="306" text-anchor="middle" font-family="Newsreader,serif" font-size="16" fill="#646B75">nobody was desperate</text>
+        <rect x="332" y="318" width="136" height="22" fill="#D3D7DC"/>
+        <text x="400" y="334" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="12" font-weight="700" fill="#646B75" letter-spacing="1.5">LEAVE IT ALONE</text>
+
+        <!-- ---- candle C: closed at the bottom ---- -->
+        <line x1="680" y1="60" x2="680" y2="250" stroke="#101317" stroke-width="3"/>
+        <line x1="652" y1="60" x2="708" y2="60" stroke="#646B75" stroke-width="2"/>
+        <line x1="652" y1="250" x2="708" y2="250" stroke="#646B75" stroke-width="2"/>
+        <circle cx="680" cy="238" r="10" fill="#10664E"/>
+        <text x="680" y="42" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="20" font-weight="700" fill="#10664E">0.05</text>
+        <text x="680" y="284" text-anchor="middle" font-family="Archivo,sans-serif" font-size="19" font-weight="800" fill="#101317">FINISHED LOW</text>
+        <text x="680" y="306" text-anchor="middle" font-family="Newsreader,serif" font-size="16" fill="#646B75">sellers were desperate</text>
+        <rect x="612" y="318" width="136" height="22" fill="#10664E"/>
+        <text x="680" y="334" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="12" font-weight="700" fill="#FFFFFF" letter-spacing="1.5">BUY IT</text>
+      </svg>
+    </div>
+    <p class="caption">The whole signal, on one screen</p>
+  </div>
+
+  <div class="stack">
+    <h2>Why betting against the strong one works</h2>
+    <p>Closing at the top of the range means someone was still buying at the last
+    second &mdash; paying up, chasing, out of patience. Closing at the bottom means
+    someone was dumping at any price.</p>
+    <p class="big">Desperation runs out. Prices snap back.</p>
+    <p class="sub">The strategy doesn't predict the future. It just takes the other
+    side of people who ran out of time. It's the oldest idea in the book:
+    short-term reversal.</p>
+  </div>
+</section>
+
+<!-- ============ HOW IT TRADES ============ -->
+<section class="stack-lg">
+  <div class="stack">
+    <p class="eyebrow">the actual recipe</p>
+    <h2>Twelve trades a year. That's it.</h2>
+  </div>
+
+  <div class="panel">
+    <div class="steps">
+      <div class="step"><div class="step-n">1</div>
+        <div class="stack-sm"><h3>Take the 500 most-traded US stocks</h3>
+        <p class="sub">Nothing under $5 &mdash; that's the penny-stock lesson, baked in.</p></div></div>
+      <div class="step"><div class="step-n">2</div>
+        <div class="stack-sm"><h3>On the last day of the month, score all 500</h3>
+        <p class="sub">Has this stock been closing higher in its range lately than it used to?</p></div></div>
+      <div class="step"><div class="step-n">3</div>
+        <div class="stack-sm"><h3>Buy the 50 lowest. Short the 50 highest.</h3>
+        <p class="sub">Equal dollars in each. Equal money long and short, so the market itself cancels out.</p></div></div>
+      <div class="step"><div class="step-n">4</div>
+        <div class="stack-sm"><h3>Trade at tomorrow morning's opening bell</h3>
+        <p class="sub">Never at tonight's close &mdash; you can't trade on a price that's already happened.</p></div></div>
+      <div class="step"><div class="step-n">5</div>
+        <div class="stack-sm"><h3>Hold for a month. Then do it again.</h3>
+        <p class="sub">Trading it weekly instead was tested: the return collapses from +9.8% to +2.7%.</p></div></div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <p class="eyebrow">measured since 1999, before trading costs</p>
+    <div class="stats">
+      <div class="stat"><span class="stat-n">+9.96%</span><span class="stat-l">per year</span></div>
+      <div class="stat"><span class="stat-n">0.69</span><span class="stat-l">sharpe ratio</span></div>
+      <div class="stat"><span class="stat-n">&minus;22.5%</span><span class="stat-l">worst drawdown</span></div>
+      <div class="stat"><span class="stat-n">+11.3%</span><span class="stat-l">per year since 2020</span></div>
+    </div>
+  </div>
+
+  <div class="versus">
+    <div class="vs-col">
+      <span class="vs-tag">The neural network</span>
+      <span class="vs-num">&asymp; 0%</span>
+      <p class="sub">Millions of images, five models, twenty-eight retrainings,
+      eight GPUs. Honest edge after costs: about nothing.</p>
+    </div>
+    <div class="vs-col win">
+      <span class="vs-tag">The one-line rule</span>
+      <span class="vs-num">+9.96%</span>
+      <p class="sub">One division. Runs on a laptop in seconds. This is the one
+      that's now tracked live.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CAVEATS ============ -->
+<section class="stack-lg">
+  <div class="stack">
+    <div class="act"><span class="act-n warn">STILL WRONG</span><p class="eyebrow">what would break it</p></div>
+    <h2>Four reasons not to trust this yet</h2>
+  </div>
+
+  <ul class="caveats">
+    <li><span class="mark">01</span><div class="stack-sm"><h3>It failed abroad</h3>
+      <p class="sub">The same rule, unchanged, was run in Australia, the UK and Japan.
+      It worked in Australia. It didn't in the other two. Japan was negative.
+      One out of three is a failed test, and it was called a failure in writing before the test ran.</p></div></li>
+    <li><span class="mark">02</span><div class="stack-sm"><h3>The month-end magic vanished</h3>
+      <p class="sub">On US data the signal is 6.5&times; stronger at month-end. That pattern
+      replicated nowhere &mdash; and in two markets it inverted outright.</p></div></li>
+    <li><span class="mark">03</span><div class="stack-sm"><h3>Every number here is before costs</h3>
+      <p class="sub">At 8 basis points a trade it still clears. At 25, it doesn't.</p></div></li>
+    <li><span class="mark">04</span><div class="stack-sm"><h3>The past isn't a track record</h3>
+      <p class="sub">Everything above is a backtest. Real forward evidence starts
+      the day it goes live &mdash; and not one day sooner.</p></div></li>
+  </ul>
+</section>
+
+<footer>
+  <p>Pattern &mdash; replication of Jiang, Kelly &amp; Xiu (2023), &ldquo;(Re&#8209;)Imag(in)ing Price Trends&rdquo;<br>
+  Live sleeve: rlcc close-location reversal, top 500 US &nbsp;·&nbsp; 50 long / 50 short &nbsp;·&nbsp; month-end formation<br>
+  Numbers as of 2026&#8209;08&#8209;07 &nbsp;·&nbsp; gross of costs &nbsp;·&nbsp; requires the ability to short individual stocks</p>
+</footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---- a deterministic pseudo-random walk, so the chart is the same every load
+  function makeSeries(n, seed){
+    var s = seed, px = 100, out = [];
+    function rnd(){ s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; }
+    for (var i = 0; i < n; i++){
+      var drift = (rnd() - 0.46) * 3.2;
+      var o = px;
+      var c = o + drift;
+      var wick = 0.6 + rnd() * 2.4;
+      var h = Math.max(o, c) + wick * rnd();
+      var l = Math.min(o, c) - wick * rnd();
+      out.push({o:o, h:h, l:l, c:c, v: 0.25 + rnd() * 0.75});
+      px = c;
+    }
+    return out;
+  }
+
+  var DAYS = 20;
+  var bars = makeSeries(DAYS, 20260821);
+
+  // 5-day moving average of the close
+  var ma = bars.map(function(b, i){
+    var lo = Math.max(0, i - 4), sum = 0, k = 0;
+    for (var j = lo; j <= i; j++){ sum += bars[j].c; k++; }
+    return sum / k;
+  });
+
+  var hi = Math.max.apply(null, bars.map(function(b){ return b.h; }));
+  var lo = Math.min.apply(null, bars.map(function(b){ return b.l; }));
+
+  // ---------------------------------------------------------------
+  // Panel A - the human-readable chart
+  // ---------------------------------------------------------------
+  (function(){
+    var c = document.getElementById("cnv-human");
+    if (!c) return;
+    var g = c.getContext("2d");
+    var W = c.width, H = c.height;
+    var padT = 14, priceH = H * 0.72, volTop = priceH + 12, volH = H - volTop - 8;
+    var slot = W / DAYS;
+
+    g.fillStyle = "#000000";
+    g.fillRect(0, 0, W, H);
+
+    function y(p){ return padT + (hi - p) / (hi - lo) * (priceH - padT * 2); }
+
+    // volume
+    g.fillStyle = "#7A7F86";
+    bars.forEach(function(b, i){
+      var h = b.v * volH;
+      g.fillRect(i * slot + slot * 0.28, volTop + volH - h, slot * 0.44, h);
+    });
+
+    // candles
+    g.strokeStyle = "#FFFFFF";
+    g.lineWidth = 1.6;
+    bars.forEach(function(b, i){
+      var x = Math.round(i * slot + slot / 2) + 0.5;
+      g.beginPath(); g.moveTo(x, y(b.h)); g.lineTo(x, y(b.l)); g.stroke();
+      g.beginPath(); g.moveTo(x - slot * 0.3, y(b.o)); g.lineTo(x, y(b.o)); g.stroke();
+      g.beginPath(); g.moveTo(x, y(b.c)); g.lineTo(x + slot * 0.3, y(b.c)); g.stroke();
+    });
+
+    // moving-average line
+    g.strokeStyle = "#FFC94A";
+    g.lineWidth = 1.6;
+    g.beginPath();
+    ma.forEach(function(m, i){
+      var x = i * slot + slot / 2;
+      if (i === 0) g.moveTo(x, y(m)); else g.lineTo(x, y(m));
+    });
+    g.stroke();
+  })();
+
+  // ---------------------------------------------------------------
+  // Panel B - the 60x64 pixel image the network actually receives
+  // ---------------------------------------------------------------
+  (function(){
+    var c = document.getElementById("cnv-cnn");
+    if (!c) return;
+    var g = c.getContext("2d");
+    var W = c.width, H = c.height;      // 60 x 64
+    var priceH = 51, volH = 12, volTop = H - volH;
+
+    g.fillStyle = "#000000";
+    g.fillRect(0, 0, W, H);
+    g.fillStyle = "#FFFFFF";
+
+    function py(p){
+      var v = Math.round((hi - p) / (hi - lo) * (priceH - 1));
+      return Math.min(priceH - 1, Math.max(0, v));
+    }
+
+    // three pixel columns per day: open tick | high-low bar | close tick
+    bars.forEach(function(b, i){
+      var x = i * 3;
+      g.fillRect(x, py(b.o), 1, 1);
+      var yh = py(b.h), yl = py(b.l);
+      g.fillRect(x + 1, yh, 1, Math.max(1, yl - yh + 1));
+      g.fillRect(x + 2, py(b.c), 1, 1);
+    });
+
+    // moving average, one pixel per column
+    ma.forEach(function(m, i){
+      g.fillRect(i * 3 + 1, py(m), 1, 1);
+    });
+
+    // volume bars along the bottom
+    bars.forEach(function(b, i){
+      var h = Math.max(1, Math.round(b.v * (volH - 1)));
+      g.fillRect(i * 3 + 1, volTop + (volH - h), 1, h);
+    });
+  })();
+})();
+</script>
