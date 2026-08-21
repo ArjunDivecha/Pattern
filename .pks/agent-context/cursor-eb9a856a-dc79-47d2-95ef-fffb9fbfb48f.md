@@ -6,8 +6,8 @@ repo_name: Pattern
 github_repo: ArjunDivecha/Pattern
 session_id: eb9a856a-dc79-47d2-95ef-fffb9fbfb48f
 source_file: eb9a856a-dc79-47d2-95ef-fffb9fbfb48f.jsonl
-exported_at: 2026-08-09T23:43:13.591028+00:00
-export_base_commit_sha: 27b030cfe957a4e03202a13c69a07611c5f0119f
+exported_at: 2026-08-21T05:20:05.656488+00:00
+export_base_commit_sha: b20b466ce309b3a65cf2ca891725f5b1fcd16b61
 redacted: true
 ---
 
@@ -467,3 +467,21 @@ The same canvas now has:
 
 Open it here:  
 [rlcc-raw-d10d1-overlay](/Users/arjundivecha/.cursor/projects/Users-arjundivecha-Dropbox-AAA-Backup-A-Working-Pattern/canvases/rlcc-raw-d10d1-overlay.canvas.tsx)
+
+
+**User:** <timestamp>Sunday, Aug 9, 2026, 4:55 PM (UTC-7)</timestamp>
+<user_query>
+is this trading daily or weekly or monthly for the basic raw top500
+</user_query>
+
+
+**Assistant:** For the **basic raw top500 RLCC** run, it is **monthly**.
+
+- **Signal formation:** once per panel date (month-end in this setup)
+- **Holding period:** about **20 trading days** (roughly 1 month)
+- **Rebalance/trade cadence:** effectively **monthly**, not weekly/daily
+
+So the core raw top500 backtest is a monthly long-short process with a ~1-month hold.  
+(If you saw daily lines elsewhere, those are daily marks of the sleeve, not daily signal re-trading.)
+
+**Clarifying monthly top500 signal construction**

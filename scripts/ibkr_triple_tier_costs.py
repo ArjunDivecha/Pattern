@@ -68,7 +68,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ib_insync import IB, Stock, util
+from ibkr_connect import open_market_data
+from ibkr_connect.compat import IB, Stock, util
 
 warnings.filterwarnings("ignore")
 
@@ -406,7 +407,10 @@ def main() -> None:
     print(f"Connecting to IBKR {args.ib_host}:{args.ib_port} clientId={args.ib_client_id} …")
     ib = IB()
     try:
-        ib.connect(args.ib_host, args.ib_port, clientId=args.ib_client_id, timeout=20)
+        # ibkr_connect resolves gateway/port/clientId from the consumer name
+        # and verifies the gateway is really answering (2026-08-19
+        # consolidation). Was: ib.connect(args.ib_host, args.ib_port, clientId=args.ib_client_id, time...)
+        ib = open_market_data("pattern")
         ib.reqMarketDataType(args.market_data_type)
         print(f"Market data type set to {args.market_data_type} "
               f"({'LIVE' if args.market_data_type==1 else 'FROZEN' if args.market_data_type==2 else 'DELAYED' if args.market_data_type==3 else 'DELAYED-FROZEN'})")
