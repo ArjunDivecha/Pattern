@@ -6,8 +6,8 @@ repo_name: Pattern
 github_repo: ArjunDivecha/Pattern
 session_id: cedcfbeb-8623-4981-801e-b50f89d6a359
 source_file: cedcfbeb-8623-4981-801e-b50f89d6a359.jsonl
-exported_at: 2026-10-10T22:13:47.891301+00:00
-export_base_commit_sha: e4c385fc12f03f7c33dee5fda0ddc7fb3fa38979
+exported_at: 2026-10-10T23:49:23.309042+00:00
+export_base_commit_sha: caba6352c157ace72c8b6057e8d1ba8d0b932964
 redacted: true
 ---
 
@@ -329,3 +329,17 @@ The disk is tighter than when we started today: 48 GB free now, down from 88 GB 
 
 
 **Assistant:** The 24 survivors were symlinks pointing at the deleted arrays, now broken. Removing them and checking why free space hasn't moved yet.
+
+
+**Assistant:** I deleted all three. Pattern went from about 205 GB to about 20 GB. The run folders dropped from 99 GB to 14 GB, the cache folder from 89 GB to 3 GB, and git from 5.2 GB to under 1 GB.
+
+**Free space hasn't gone up yet.** The disk still reports 48 GB free because two Time Machine local snapshots still hold the deleted data. One of them was taken at 10:09 this morning, before the cleanup. macOS frees that space on its own when the snapshots expire, usually within a day, or sooner if something needs the room. If you want it back now, I can delete the two Time Machine snapshots. They're backups, so I'll wait for your yes.
+
+**Two other things to know:**
+- Besides the 29 real image arrays, there were 24 links pointing at them in the relative-rolling run. Deleting the arrays left the links broken
+
+
+**User:** whats the status
+
+
+_Transcript truncated for commit-sized artifact._
