@@ -6,8 +6,8 @@ repo_name: Pattern
 github_repo: ArjunDivecha/Pattern
 session_id: cedcfbeb-8623-4981-801e-b50f89d6a359
 source_file: cedcfbeb-8623-4981-801e-b50f89d6a359.jsonl
-exported_at: 2026-10-10T18:40:16.904348+00:00
-export_base_commit_sha: 075bc6ba1af6ea0d040ff683b8f3bd41550cf89a
+exported_at: 2026-10-10T18:42:02.312254+00:00
+export_base_commit_sha: f862703fcc8071c0668c52cace85d54569e4fb31
 redacted: true
 ---
 
@@ -269,3 +269,12 @@ Summary:
 
 
 **Assistant:** The smoke test ran end to end: on-the-fly rendering matched the reference renderer, and two folds trained, scored and ensembled. Checking the fold dates:
+
+
+**Assistant:** While the first fold warms up, I'm writing the report script. Checking whether the Data Mart's shares-outstanding field can supply the market cap used to split the R1000 from the R2000:
+
+
+**Assistant:** Shares outstanding covers about 4,500 names a quarter and carries a filing date, so market cap at formation can be computed point-in-time. Writing the report:
+
+
+**Assistant:** The report pipeline works on the smoke output, and market cap is available for 99% of sampled names. Committing it, then waiting on the first real fold's speed so I can quote you real times.
