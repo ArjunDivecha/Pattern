@@ -104,3 +104,18 @@ Built frozen database v2 (`data/frozen/pattern_daily_v2_20261010`, now CURRENT) 
 ---
 SESSION END: 2026-10-10 11:45 PDT | Agent: Claude Code (session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-10 12:30 PDT | Agent: Claude Code (session cedcfbeb)
+---
+
+### Session Summary
+Disk cleanup at the user's request. Deleted ~175 GB of regenerable images: every `images.npy` under `runs/` (29 files, 85 GB, plus 24 symlinks to them in `runs/relative_rolling5_seed101_latest`), `cache/frozen_full_I20_M20_v1` (73 GB) and `cache/frozen_full_I20_M20_extension_v1` (13 GB), and 4.2 GB of abandoned `.git/objects/pack/tmp_pack_*` files. Every score, metric, checkpoint and log in those run folders was kept.
+
+### Constraints & Gotchas
+- v1 labs that read the v1 image caches or a run's `images.npy` must re-render first, from `data/frozen/pattern_daily_v1_20260918` (kept).
+- Local Time Machine snapshots hold the freed blocks until they expire.
+
+---
+SESSION END: 2026-10-10 12:30 PDT | Agent: Claude Code (session cedcfbeb)
+---
