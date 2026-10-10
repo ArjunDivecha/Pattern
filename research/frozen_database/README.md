@@ -1,6 +1,6 @@
 # Canonical research data baseline
 
-Use `data/frozen/CURRENT.json` under the Pattern repository to resolve the frozen daily database. The current snapshot is `pattern_daily_v1_20260918`. Its README and manifest are the final data definition for this version; earlier audit drafts are superseded for operational use.
+Use `data/frozen/CURRENT.json` under the Pattern repository to resolve the frozen daily database. The current snapshot is `pattern_daily_v2_20261010` (built 2026-10-10 by `freeze_v2.py`, verified by `verify_v2.py`, contract `CONTRACT_v2.md`). It is built from the rebuilt Global Data Mart vintage, which is survivorship-certified for the Russell 3000 from 2000. It uses the real NYSE calendar and adds point-in-time membership, traded prices, delisting outcomes and identity segments. Version 1, `pattern_daily_v1_20260918`, is kept unchanged; labs written for v1 read `candidate_sessions.parquet`, which v2 replaces with `sessions.parquet`, so they fail loudly instead of silently mixing versions. Its README and manifest are the final data definition for this version; earlier audit drafts are superseded for operational use.
 
 All experiments must record the dataset ID and manifest checksum, along with independent lookback, forecast horizon and moving-average settings. The original production training/backtest loaders have not been migrated in this data-freeze step. They must explicitly consume this snapshot before a new research run; legacy `data/r1000_*` files are not this baseline.
 

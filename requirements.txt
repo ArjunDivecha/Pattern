@@ -19,3 +19,4 @@ yfinance>=0.2.0
 
 # Live experiment tracking
 wandb>=0.30.0
+exchange_calendars>=4.13.2
