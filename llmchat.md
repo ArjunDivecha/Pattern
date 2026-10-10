@@ -85,3 +85,22 @@ Earlier files are unchanged, including the extracted LQA text at /Users/arjundiv
 ---
 SESSION END: 2026-10-07 23:01 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-10 11:45 PDT | Agent: Claude Code (session cedcfbeb)
+---
+
+### Session Summary
+Built frozen database v2 (`data/frozen/pattern_daily_v2_20261010`, now CURRENT) from the rebuilt GDM vintage: 37.6M rows, 9,470 names, NYSE calendar, R3000 PIT membership, nominal prices, delisting outcomes, identity segments. Verified (9 checks). v1 untouched. Built the R3000 headline harness in `research/r3000_headline/` (prepare.py index, train.py on-the-fly rendering expanding trainer, report.py gross deciles with terminal/floor/size variants). Smoke-tested end to end. Started the real run locally on MPS: `research/r3000_headline/runs/headline_I20R20_v2_20261010T184018Z/`.
+
+### Decisions Made
+- No Bloomberg (user). No image cache: 83 GB would not fit in 88 GB free; images rendered on the fly.
+- Model recipe follows the original headline (batch 128, patience 2, latest 30% of history as validation); test years complete, 58-session purge.
+
+### Open Questions
+- Local MPS trains ~2,100 images/s: the full 27-fold, 5-seed run is ~5-6 weeks locally. Cloud 8xA100 estimate ~15-20 h, ~$150-300. Awaiting user decision.
+- 30% time-held-out validation means the 2026 model trains only through 2016 (same as original headline).
+
+---
+SESSION END: 2026-10-10 11:45 PDT | Agent: Claude Code (session cedcfbeb)
+---
