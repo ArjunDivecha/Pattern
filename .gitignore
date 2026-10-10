@@ -55,3 +55,6 @@ Thumbs.db
 /research/**/*.pdf
 /research/**/*.xlsx
 /research/**/report.html
+
+# Research run dirs
+/research/**/runs/

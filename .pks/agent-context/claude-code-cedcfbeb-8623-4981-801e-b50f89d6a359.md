@@ -6,8 +6,8 @@ repo_name: Pattern
 github_repo: ArjunDivecha/Pattern
 session_id: cedcfbeb-8623-4981-801e-b50f89d6a359
 source_file: cedcfbeb-8623-4981-801e-b50f89d6a359.jsonl
-exported_at: 2026-10-10T15:13:24.814635+00:00
-export_base_commit_sha: 87a01c508f56289737451de4f0b2e55f32367bfc
+exported_at: 2026-10-10T15:18:23.730090+00:00
+export_base_commit_sha: 9a3b8480f5b3558ff7120ca707796dd625cd10f4
 redacted: true
 ---
 
@@ -75,3 +75,21 @@ The Pattern verdict in Investment Learnings says the R1000 signal is real, with 
 
 
 **Assistant:** Tests pass (89). Checking the research-folder tests, then committing.
+
+
+**Assistant:** Cleanup is committed. Now the local checks on the Global Data Mart extension.
+
+
+**Assistant:** The October pull has no complete misses. Now checking the price coverage specifically, since that's what Pattern needs.
+
+
+**Assistant:** Coverage looks excellent, but something's off: the membership table has only about 1,500 members in 2000 versus about 3,000 from 2010 on. Checking whether it's missing the October names.
+
+
+**Assistant:** The vintage membership table is filtered to the old 6,784-name universe, so none of the 2,726 October names appear in it. I'll rerun the check against the full point-in-time membership source.
+
+
+**Assistant:** The canonical membership file the Data Mart registry points to doesn't exist at its registered path. Only the pre-migration copy in Visual Pattern Genre does. Rerunning the check against that copy.
+
+
+**Assistant:** The headline is clear: from 2000 on, 99.7% of Russell 3000 member-months are priced. A variable-name clash crashed the summary step, so I'll fix it and rerun.
