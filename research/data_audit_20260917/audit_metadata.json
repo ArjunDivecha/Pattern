@@ -1,0 +1,31 @@
+{
+  "source_files": {
+    "/Users/arjundivecha/Dropbox/AAA Backup/A Working/Global Data Mart/sources/equities/data/vintages/2026-06-30/prices.parquet": [
+      539370472,
+      1788967258857153211
+    ],
+    "/Users/arjundivecha/Dropbox/AAA Backup/A Working/Global Data Mart/sources/equities/data/vintages/2026-06-30/security_master.parquet": [
+      217190,
+      1788967298771312316
+    ],
+    "/Users/arjundivecha/Dropbox/AAA Backup/A Working/Global Data Mart/sources/equities/data/vintages/2026-06-30/manifest.json": [
+      8513,
+      1788967637554200463
+    ],
+    "/Users/arjundivecha/Dropbox/AAA Backup/A Working/Global Data Mart/sources/equities/data/events/splits.parquet": [
+      198947,
+      1788361203344992930
+    ],
+    "/Users/arjundivecha/Dropbox/AAA Backup/A Working/Global Data Mart/sources/equities/data/events/dividends.parquet": [
+      2411081,
+      1788361172022022800
+    ]
+  },
+  "source_unchanged_stat_check": true,
+  "case_count": 30,
+  "sampling": "Purposeful exception sample plus fixed corporate-action controls; not representative",
+  "api_calls": 0,
+  "price_rows": 29604653,
+  "price_securities": 6751,
+  "manifest_generated": "2026-09-09T10:27:17"
+}

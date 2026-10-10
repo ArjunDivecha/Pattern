@@ -58,6 +58,7 @@ def render_window(
     ohlc_height_ratio: float = 0.797,
     include_ma: bool = True,
     include_volume: bool = True,
+    ma_length: Optional[int] = None,
 ) -> Optional[np.ndarray]:
     """
     Render one chart image.
@@ -79,6 +80,11 @@ def render_window(
         (1, height, width) uint8 array with pixels in {0, 255}, or None if
         insufficient data.
     """
+    ma_length = window if ma_length is None else ma_length
+    if ma_length < 1:
+        raise ValueError("ma_length must be positive")
+    if width != 3 * window:
+        raise ValueError("width must equal 3 * window")
     N = len(ohlcv)
     if N < window:
         return None
@@ -137,12 +143,12 @@ def render_window(
         full_p = tri / tri0        # normalised close for all N days
         for t in range(window):
             full_idx = N - window + t
-            start    = full_idx - window + 1
+            start    = full_idx - ma_length + 1
             if start < 0:
                 continue           # not enough history — leave undefined
             segment = full_p[start : full_idx + 1]
             valid_s = segment[np.isfinite(segment)]
-            if len(valid_s) >= window:
+            if len(valid_s) >= ma_length:
                 ma_rows[t] = _row(float(valid_s.mean()))
 
     # ── Volume normalisation (Step 5) ────────────────────────────────────────

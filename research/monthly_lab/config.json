@@ -1,0 +1,20 @@
+{
+  "dataset_pointer": "data/frozen/CURRENT.json",
+  "source_start": "1995-01-01",
+  "source_end": "2022-12-31",
+  "train": {"start": "1997-01-01", "end": "2011-12-31", "rows": 100000},
+  "validation": {"start": "2014-01-01", "end": "2015-12-31", "rows": 20000},
+  "comparison": {"start": "2018-01-01", "end": "2022-11-30", "stocks": 500},
+  "lookback_months": 12,
+  "ma_days": 200,
+  "sample_seed": 71,
+  "device": "mps",
+  "threads": 2,
+  "batch_size": 256,
+  "max_epochs": 50,
+  "patience": 5,
+  "seeds": [0,1,2],
+  "ntiles": 10,
+  "experiments": [{"name": "M12_R1_MA200_closebars", "horizon": 1, "horizon_unit": "calendar_month", "volume": true, "learning_rate": 0.00001, "model": {}}],
+  "wandb": {"enabled": true, "project": "pattern-cnn", "entity": "arjun-divecha-dancing-elephant"}
+}

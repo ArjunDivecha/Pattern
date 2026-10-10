@@ -1,0 +1,10 @@
+{
+  "device": "mps",
+  "batch": 256,
+  "training_steps": 30,
+  "seconds": 1.6561089160022675,
+  "images_per_second": 4637.376156719806,
+  "parameters": 708418,
+  "precision": "float32",
+  "scope": "device-resident synthetic batch, excludes disk I/O and validation"
+}

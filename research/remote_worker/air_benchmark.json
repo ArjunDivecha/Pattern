@@ -1,0 +1,24 @@
+{
+  "device": "mps",
+  "torch": "2.11.0",
+  "epochs": [
+    {
+      "epoch": 1,
+      "seconds": 51.83376070900704,
+      "loss": 1.0636440134482839,
+      "training_rows": 49838
+    },
+    {
+      "epoch": 2,
+      "seconds": 48.0748746249883,
+      "loss": 1.0271299823462625,
+      "training_rows": 49838
+    },
+    {
+      "epoch": 3,
+      "seconds": 48.47571141598746,
+      "loss": 0.9932071208532877,
+      "training_rows": 49838
+    }
+  ]
+}

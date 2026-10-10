@@ -41,3 +41,17 @@ tea_debug.log
 # Secrets
 .env
 .env.*
+
+# Windows / agent lock files
+Thumbs.db
+.llmchat.lock
+
+# Research outputs: commit the code and docs, never the data they produce.
+# Timestamped output dirs (e.g. quality_layer_20260918T064856Z/) and bulk data.
+/research/**/*_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z/
+/research/**/*.parquet
+/research/**/*.csv
+/research/**/*.png
+/research/**/*.pdf
+/research/**/*.xlsx
+/research/**/report.html

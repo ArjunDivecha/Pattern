@@ -1,0 +1,17 @@
+{
+  "train_start": "1996-01-01",
+  "first_test": 2010,
+  "last_test": 2022,
+  "reserve_start": "2023-01-01",
+  "reserved_test_years": [2023, 2024, 2025],
+  "exclude_partial_year": 2026,
+  "lookbacks": [5, 10, 20, 40, 60, 120],
+  "horizons": [1, 5, 10, 20, 40, 60],
+  "ma_rule": "equal to visible lookback",
+  "max_history": 239,
+  "max_horizon": 60,
+  "validation_sessions": 252,
+  "fit_frequency": "annual",
+  "primary_evaluation": "deciles: bottom, top, paired top-minus-bottom; annually and combined",
+  "status": "development schedule frozen; full training budget and execution design not yet frozen"
+}

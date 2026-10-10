@@ -1,0 +1,52 @@
+{
+  "dataset_pointer": "data/frozen/CURRENT.json",
+  "cache": "cache/frozen_full_I20_M20_v1",
+  "sample_seed": 71,
+  "train": {
+    "start": "1997-01-01",
+    "end": "2012-12-31",
+    "dates": 200,
+    "stocks": 500
+  },
+  "validation": {
+    "start": "2014-07-01",
+    "end": "2016-06-30",
+    "dates": 40,
+    "stocks": 500
+  },
+  "comparison": {
+    "start": "2018-01-01",
+    "end": "2022-10-05",
+    "stocks": 500
+  },
+  "max_history": 239,
+  "max_horizon": 60,
+  "device": "mps",
+  "threads": 4,
+  "batch_size": 256,
+  "max_epochs": 50,
+  "patience": 5,
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "ntiles": 10,
+  "experiments": [
+    {
+      "name": "I20_R5_baseline",
+      "horizon": 5,
+      "volume": true,
+      "learning_rate": 1e-05,
+      "model": {}
+    }
+  ],
+  "purpose": "I20/R5 longer training with resumable checkpoints and live W&B",
+  "reference_sample": "runs/development_lab_v2_20260918/sample.parquet",
+  "prepared_sample_dir": "runs/development_lab_v2_20260918",
+  "wandb": {
+    "enabled": true,
+    "project": "pattern-cnn",
+    "entity": "arjun-divecha-dancing-elephant"
+  }
+}
