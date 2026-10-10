@@ -6,8 +6,8 @@ repo_name: Pattern
 github_repo: ArjunDivecha/Pattern
 session_id: cedcfbeb-8623-4981-801e-b50f89d6a359
 source_file: cedcfbeb-8623-4981-801e-b50f89d6a359.jsonl
-exported_at: 2026-10-10T18:30:01.569834+00:00
-export_base_commit_sha: b28a404f8affa00232f183a7d484385005c9cf1a
+exported_at: 2026-10-10T18:40:16.904348+00:00
+export_base_commit_sha: 075bc6ba1af6ea0d040ff683b8f3bd41550cf89a
 redacted: true
 ---
 
@@ -263,3 +263,9 @@ Summary:
 
 
 **Assistant:** The v2 snapshot is built and verified, and CURRENT.json now points at it. I'm checking its numbers before going on to the training harness.
+
+
+**Assistant:** Sample index and image builder written. Smoke-testing it on 50 names with rendering, then a full count without images.
+
+
+**Assistant:** The smoke test ran end to end: on-the-fly rendering matched the reference renderer, and two folds trained, scored and ensembled. Checking the fold dates:
