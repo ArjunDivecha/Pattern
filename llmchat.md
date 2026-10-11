@@ -166,3 +166,40 @@ Train-once variant (user asked): `research/r3000_headline/score_fixed.py` scored
 ---
 SESSION END: 2026-10-10 20:45 PDT | Agent: Claude Code (session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-10 23:57 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Arjun asked to check the train-once result (fixed2000 run, `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/fixed2000_I20R20_v2_20261010T234913Z/`). It held up. Written and committed: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/verify_fixed.py` (v1.1). Rerun output: `.../fixed2000_I20R20_v2_20261010T234913Z/verify_20261011T062345Z/verification.json`, all checks passed.
+- Independent recompute of the long-short matched report.py to within 4e-17. The first run flagged a failure only because it counted June 2026, which has no forward returns. v1.1 excludes that unrealised cohort.
+- Timing: first test portfolio is 59 sessions after the last validation day, and holding periods don't overlap.
+- Within-date shuffle, 200 draws: real NW t of 2.90 beat every draw (max 2.44).
+- Not short-term reversal: a plain 1-month reversal book on the same names had Sharpe 0.11 and monthly returns uncorrelated with the model's.
+- Rendering: 99.8% of re-rendered samples reproduce stored scores exactly (corr 0.9999). The compiled renderer breaks half-pixel ties the other way. It is the same in training and scoring, so it adds noise but no bias, moving scores by at most 0.015.
+- IC (this answer only, not saved to a file): mean rank IC 0.018 on 333 monthly dates, NW t 5.9, positive on 63% of dates, annualised IC ratio 1.1. Over all days it is 0.019. By block it falls from 0.034 (2000-04) to about 0.012, but stays positive with t of 2.0-2.9 in every later five-year block. A single seed has IC 0.013, so the five-seed ensemble adds about 40%. 2021 and 2022 were strongest at 0.069 and 0.044; four of 27 years were negative, and 2026 was weakest at −0.022.
+
+Training stopped at Arjun's request, and the GPU went to Kronos. Pids 93826 and 93828 were sent TERM. In `.../headline_I20R20_v2_20261010T184018Z/`, Y2000 is complete (5 seeds) and Y2001 has 3 of 5 seeds done. Seed 3 was stopped mid-fit and its checkpoint kept. I removed `Y2001/seed_3/RUNNING.lock` and wrote a stop note in `train.log`. I told the Kronos session the GPU is free.
+
+### Decisions Made
+- The earlier read that the model "goes stale in about five years" is revised. The decile book is noisy, while the IC shows a durable signal at about a third of its early strength.
+- Nothing is started on the GPU without Arjun's say-so.
+
+### What To Build Next
+- Fix two cosmetic bugs. The startup renderer check claims exact agreement after only 300 images, which is too small to catch a 0.5% quirk. The train-once report title wrongly says "expanding".
+- Save the IC table to a file, since it was only computed inline.
+- Resume the annual-retrain run by rerunning the same command (locally or on a rented node). The clean retrain-versus-train-once comparison is stalled until then.
+
+### Constraints & Gotchas
+- The ~0.5% half-pixel tie-break difference between the compiled and reference renderers means exact-match checks should be judged on share matched (99.8%), not 100%.
+
+### Open Questions
+- Rent 8xA100 or finish locally later? This is still undecided and now also decides when the GPU comes back.
+
+### Context for Next Session
+Stopped, resumable run: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_20261010T184018Z/`. Forward returns come from `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/cache/r3000_I20_M20_v2_index/index.parquet`.
+
+---
+SESSION END: 2026-10-10 23:57 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
