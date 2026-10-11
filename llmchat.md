@@ -119,3 +119,50 @@ Disk cleanup at the user's request. Deleted ~175 GB of regenerable images: every
 ---
 SESSION END: 2026-10-10 12:30 PDT | Agent: Claude Code (session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-10 17:30 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Status check on the R3000 headline run `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_20261010T184018Z/` (train.py pid 93826, MPS). Y2000 finished all 5 seeds (4-9 epochs each, early stopping) and scored about 700,000 stock-days. It took 5.1 h. Y2001 seed 0 was training on 1.46M images. Local ETA for all 27 folds is about 3.5 weeks (early November), which beats the earlier 5-6 week estimate. Free disk is now 685 GB because the Time Machine snapshots expired.
+
+The interim report on 2000 alone ran cleanly end to end: `report_20261010T234559Z/` (report.html, metrics.xlsx, charts.pdf) inside the run dir. It has 13 monthly portfolios from one year, the dot-com unwind, so it is thin evidence. Long-short was +46% with Sharpe 1.7. The small-cap half carried it at about the same Sharpe. Large caps made +28% at Sharpe 1.1, the same small-cap-heavy pattern as the original study. The $5 price floor on the traded price cost about 4 points, so the signal is not living in penny stocks. No bankruptcies fell inside 2000's holding periods, so zero-valuing them changed nothing.
+
+Wrote and committed `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/score_fixed.py`. This is a train-once variant that scores every later year with the five 2000-fold models and no refit. Those models trained on 1996 to mid-1998 and were validated through Oct 1999, about 2.5 years of data against 7 in the original paper. Run dir: `.../runs/fixed2000_I20R20_v2_20261010T234913Z/`, log `score.log`. The 2000 re-score check passed: reloaded models reproduced the stored 2000 scores with zero difference on all ~700k samples. Scoring of 2001 onward is now running at about 1,300 img/s on a shared GPU, about 21M images, so roughly 4-5 h.
+
+### Decisions Made
+- Train-once is a separate comparison arm; the annual-retrain run continues unchanged.
+
+### What To Build Next
+- When `score.log` shows DONE, run `report.py` on the fixed2000 run dir. Compare it with the annual-retrain scores to measure what retraining is worth.
+
+### Constraints & Gotchas
+- GPU contention: the Kronos session's R3000 zero-shot queue (pid 8843, session shiyu-coder-kronos-76) shares the one MPS GPU. Both jobs run at about a third to half speed, and score_fixed.py is a third load. I replied with the ETA of 3-4 weeks and am not stopping or reprioritising anything. Kronos is raising the contention with the user.
+
+### Open Questions
+- Rent 8xA100 (about a day) or stay local for 3.5 weeks? This also decides who gets the GPU.
+- Keep the 30% time-held-out validation, or switch to a one-year window?
+
+### Context for Next Session
+Heartbeat: `.../headline_I20R20_v2_20261010T184018Z/Y2001/seed_0/progress.json`. Training log: `.../headline_I20R20_v2_20261010T184018Z/train.log`. 2000 scores: `.../headline_I20R20_v2_20261010T184018Z/Y2000/ensemble_scores.parquet`.
+
+---
+SESSION END: 2026-10-10 17:30 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+---
+SESSION START: 2026-10-10 20:45 PDT | Agent: Claude Code (session cedcfbeb)
+---
+
+### Session Summary
+Train-once variant (user asked): `research/r3000_headline/score_fixed.py` scored 2000-2026 with the five Y2000 models (trained 1996-02 to 1998-06) and no retraining. Re-scoring 2000 matched the stored scores exactly. Run: `research/r3000_headline/runs/fixed2000_I20R20_v2_20261010T234913Z/` (3.8 h on a shared GPU), report in `report_20261011T034106Z/`.
+- Full-period long-short: 6.4%/yr, Sharpe 0.57, NW t 2.9. 2000-2004 Sharpe 1.16, then 0.2-0.5 per five-year block; last 3 years negative.
+- Large-cap slice Sharpe 0.28; small caps 0.58. Bankrupt-at-zero changes nothing (13 bankrupt terminal samples).
+- Confounded: the model never retrains AND trained on only ~2.3 years. Expanding run (still training, ETA early November) gives the clean comparison.
+
+### Constraints & Gotchas
+- Kronos session (shiyu-coder-kronos-76) shares the MPS GPU; both jobs at a third to half speed. Told it ETA 3-4 weeks. GPU priority and cloud rental are Arjun's call.
+---
+SESSION END: 2026-10-10 20:45 PDT | Agent: Claude Code (session cedcfbeb)
+---
