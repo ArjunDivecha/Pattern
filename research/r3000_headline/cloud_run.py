@@ -51,6 +51,7 @@ Output files (home run dir, default research/r3000_headline/runs/headline_I20R20
     config.json, environment.json, folds.csv, white_pixels.npy, assemble.log, report_<UTC>/ (report.py), report.log
     cloud/{settings.json, hosts.json, units.json, status.json, dispatch.log, upload_manifest.json,
            fold_workload.csv, relay_key(.pub), partial/<unit>/, failures/<unit>_<n>/, hosts/<name>/}
+    ~/.ssh/pattern_cloud/<run name>/<machine>_known_hosts (one per machine; Verda reuses IPs)
 
 Usage (repo venv):
     .venv/bin/python research/r3000_headline/cloud_run.py prepare
@@ -59,7 +60,7 @@ Usage (repo venv):
         --budget-usd 200 --confirm-spend [--auto-delete] [--types 1A100.22V 2A100.44V] > DIR/cloud/start.out 2>&1 &
     .venv/bin/python research/r3000_headline/cloud_run.py status --run-dir DIR
     .venv/bin/python research/r3000_headline/cloud_run.py teardown --run-dir DIR --confirm-delete
-    .venv/bin/python research/r3000_headline/cloud_run.py localtest
+    .venv/bin/python research/r3000_headline/cloud_run.py localtest [--ssh-shim]
 
 Dependencies: numpy (verification of copied scores); everything else is the standard library,
 ssh and tar. Remote machines: Verda image 24.04.cuda13.2, packages pinned in PIP_PINS.
@@ -298,7 +299,9 @@ class Dispatcher:
 
     # --- transport
     def ssh_cmd(self, h):
-        kh = self.cloud / 'hosts' / h['name'] / 'known_hosts'
+        # ssh splits UserKnownHostsFile on whitespace, so this path must not contain spaces;
+        # one file per machine because Verda reuses IPs.
+        kh = Path.home() / '.ssh' / 'pattern_cloud' / self.home.name / f"{h['name']}_known_hosts"
         kh.parent.mkdir(parents=True, exist_ok=True)
         return ['ssh', '-i', str(SSH_KEY), '-o', f'UserKnownHostsFile={kh}', '-o', 'StrictHostKeyChecking=accept-new',
                 '-o', 'ConnectTimeout=15', '-o', 'ServerAliveInterval=30', '-o', 'ServerAliveCountMax=4',
@@ -306,10 +309,10 @@ class Dispatcher:
 
     def remote_shell(self, h, cmd):
         """A bash command line that runs cmd on host h."""
+        if 'fake_dir' in h and (Path(h['fake_dir']) / 'DOWN').exists():
+            return '(echo "test host is down" >&2; exit 255)'
         if h['transport'] == 'local':
-            if (Path(h['fake_dir']) / 'DOWN').exists():
-                return 'echo "test host is down" >&2; exit 255'
-            return cmd
+            return f'bash -c {shlex.quote(cmd)}'   # one command, like ssh, so pipes bind correctly
         return shlex.join(self.ssh_cmd(h) + [cmd])
 
     def run(self, h, cmd, input=None, timeout=180):
@@ -392,7 +395,7 @@ class Dispatcher:
     def provision(self, name):
         h = self.host(name)
         try:
-            if h['transport'] == 'local':
+            if 'fake_dir' in h:   # test machine on this Mac: code and data are already here
                 Path(h['run_dir']).mkdir(parents=True, exist_ok=True)
                 shutil.copy2(self.home / 'white_pixels.npy', Path(h['run_dir']) / 'white_pixels.npy')
                 self.set_state(h, 'ready', ready=now())
@@ -488,7 +491,7 @@ class Dispatcher:
         self.log(f"{h['name']}: all {len(self.files)} file hashes match")
 
     def delete_host(self, h, why):
-        if h['transport'] == 'local':
+        if 'fake_dir' in h:
             self.set_state(h, 'deleted', ended=h.get('ended') or now())
             return
         if not self.s['auto_delete']:
@@ -639,7 +642,7 @@ class Dispatcher:
 
     def check_lost(self, h):
         gone = h['poll_failures'] >= 15
-        if h['transport'] == 'ssh':
+        if 'fake_dir' not in h:
             try:
                 st = self.verda.instance(h['instance_id']).get('status')
             except RuntimeError as e:
@@ -851,9 +854,18 @@ def cmd_localtest(a):
          'smoke': True, 'years': years, 'seeds': SEEDS, 'poll_s': 5, 'partial_sync_s': 0, 'fill_interval_s': 1e9, 'tag': 'local'}
     atomic_json(home / 'cloud' / 'settings.json', s)
 
+    if a.ssh_shim:   # stand-in ssh: same options as real ssh, runs the remote command the way sshd does
+        shim = home / 'cloud' / 'ssh_shim'
+        shim.mkdir()
+        (shim / 'ssh').write_text('#!/bin/bash\n# test stand-in for ssh: skip options, drop the host, run the rest as sshd would\n'
+                                  'while [ $# -gt 0 ]; do case "$1" in -i|-o|-p|-l) shift 2;; -*) shift;; *) break;; esac; done\n'
+                                  'shift\nexec bash -c "$*"\n')
+        (shim / 'ssh').chmod(0o755)
+        os.environ['PATH'] = f"{shim}:{os.environ['PATH']}"
+
     def fake(name):
         fd = home / 'cloud' / 'fakehosts' / name
-        return {'name': name, 'transport': 'local', 'root': str(ROOT), 'run_dir': str(fd / 'run'), 'fake_dir': str(fd),
+        return {'name': name, 'transport': 'ssh' if a.ssh_shim else 'local', 'ip': 'shim', 'root': str(ROOT), 'run_dir': str(fd / 'run'), 'fake_dir': str(fd),
                 'python': str(VENV_PY), 'device': 'cpu', 'gpus': [0], 'state': 'creating', 'created': now(),
                 'price_per_hour': 0, 'successes': 0, 'errors': 0, 'poll_failures': 0}
     d = Dispatcher(home, s)
@@ -905,7 +917,7 @@ def cmd_localtest(a):
     assert resumed and same
     complete = assemble(home, smoke=True, report_args=['--allow-partial', '--min-names', '1'])
     d.log(f'TEST: ensembles and report written for {complete}')
-    atomic_json(home / 'cloud' / 'localtest_result.json', {'passed': True, 'units': len(d.units), 'machine_loss_requeued':
+    atomic_json(home / 'cloud' / 'localtest_result.json', {'passed': True, 'ssh_shim': a.ssh_shim, 'units': len(d.units), 'machine_loss_requeued':
                 [unit_name(u['year'], u['seed']) for u in lost], 'resume_identical_scores': same, 'assembled_years': complete, 'utc': utc()})
     print(f'LOCALTEST PASSED: {home}')
 
@@ -934,7 +946,8 @@ def main():
     p.add_argument('--run-dir', required=True)
     p.add_argument('--confirm-delete', action='store_true')
     sub.add_parser('assemble').add_argument('--run-dir', required=True)
-    sub.add_parser('localtest')
+    sub.add_parser('localtest').add_argument('--ssh-shim', action='store_true',
+                                             help='route every machine command through the real ssh code path (stand-in ssh)')
     a = ap.parse_args()
     if a.cmd == 'prepare':
         prepare(a.run_dir)
