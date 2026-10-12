@@ -513,7 +513,14 @@ class Dispatcher:
                     self.log(f"{h['name']}: copied files from {src['name']} in {(now() - t0) / 60:.1f} min")
                     return
                 self.log(f"{h['name']}: relay from {src['name']} failed ({r.stderr.strip()[-200:]}), trying next source")
-            if self.mac_lock_holder == h['name'] or self.mac_lock.acquire(timeout=20):
+            if self.mac_lock_holder == h['name']:
+                break
+            if self.mac_lock.acquire(timeout=20):
+                # the previous holder may have just become ready: relay from it rather than upload again
+                if any(x['state'] == 'ready' and x['transport'] == 'ssh' and x['name'] != h['name']
+                       and x['name'] not in tried for x in self.hosts):
+                    self.mac_lock.release()
+                    continue
                 with self.lock:
                     self.mac_lock_holder = h['name']
                 break
