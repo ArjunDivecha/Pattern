@@ -253,3 +253,22 @@ Stopped the local R3000 run at the user's request so Kronos gets the MPS GPU (re
 ---
 SESSION END: 2026-10-11 19:10 PDT | Agent: Claude Code (session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-11 21:05 PDT | Agent: Claude Code (session cedcfbeb)
+---
+
+### Session Summary
+Built the cloud orchestrator for the full R3000 expanding run and left it ready; nothing rented. Arjun said: get everything ready but don't start until he says so.
+- `research/r3000_headline/cloud_run.py` runs on the Mac and handles everything: prepare, plan, start, resume, status, teardown, assemble and localtest. `cloud_agent.py` is the helper on each machine, and train.py is unchanged. There are 135 units (27 years × 5 seeds), one per GPU, longest first. Verda spot A100 80GB by default. Uploads go machine to machine after the first, and SHA-256 is checked on every file. Finished units are copied home and checked. last.pt is copied home every 15 minutes, so a preempted unit resumes elsewhere from its last epoch. A unit that errors twice is marked failed. Renting stops at the --budget-usd cap. Ensembles are assembled at home, then report.py runs.
+- Real run directory prepared: `research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/`. Y2000/Y2001 are retrained on CUDA for uniformity. `plan` says 112 A100-hours, about 28 h on 4 GPUs, about $108 spot.
+- localtest passed twice on CPU: two fake machines, a simulated machine loss, and resume from checkpoint on a fresh machine (no retraining, identical scores), then assembly and report. One run used the local path and one a stand-in ssh. The first attempt failed on a real pipe-grouping bug in the local transport; it was fixed and rerun.
+
+### Constraints & Gotchas
+- ssh splits UserKnownHostsFile on whitespace: known_hosts go in `~/.ssh/pattern_cloud/<run>/`, one per machine because Verda reuses IPs.
+- Machines are deleted automatically only with `--auto-delete`, which needs Arjun's explicit authorisation per the Verda rule.
+- The Mac must stay awake for the dispatcher (caffeinate). If it stops, running units carry on, and `resume` picks them up.
+
+---
+SESSION END: 2026-10-11 21:05 PDT | Agent: Claude Code (session cedcfbeb)
+---
