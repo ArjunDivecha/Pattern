@@ -1,6 +1,6 @@
 """
 Script: cloud_run.py
-Version: 1.0 (2026-10-11)
+Version: 1.1 (2026-10-12)
 
 Description:
     Runs the R3000 headline expanding-window training (train.py, unchanged) on rented
@@ -103,6 +103,13 @@ YEARS, SEEDS = list(range(2000, 2027)), [0, 1, 2, 3, 4]
 TRAIN_RATE, EVAL_RATE, EPOCHS, STARTUP_S = 17000, 60700, 6.125, 45
 STALE_S = 40 * 60          # no progress for this long -> the unit is killed and requeued
 LIVE = ('creating', 'booting', 'setup', 'ready')
+SETUP_TRIES = 3   # a machine gets this many setup attempts (ssh drops, first-boot reboots) before it is given up
+# Verda's first-boot cloud-init runs apt for a few minutes; installing alongside it hits the apt lock.
+WAIT_FOR_BOOT = ('cloud-init status --wait >/dev/null 2>&1; '
+                 'for i in $(seq 1 360); do '
+                 'pgrep -x apt-get >/dev/null || pgrep -x apt >/dev/null || pgrep -x dpkg >/dev/null || '
+                 'pgrep -f "/usr/bin/unattended-upgrade( |$)" >/dev/null || exit 0; sleep 5; done; '
+                 'echo "apt still busy after 30 min" >&2; exit 1')
 
 
 def now():
@@ -262,6 +269,8 @@ class Dispatcher:
         self.last_fill = 0
         self.stop = False
         self.chaos_done = False
+        self.mac_lock = threading.Lock()   # one upload from the Mac at a time; later machines relay from the first
+        self.mac_lock_holder = None
         if self.units is None:
             import pandas as pd
             est = unit_hours(pd.read_csv(self.cloud / 'fold_workload.csv'))
@@ -413,40 +422,68 @@ class Dispatcher:
                 h['ip'], h['os_volume_id'] = info['ip'], info.get('os_volume_id')
             self.save()
             self.set_state(h, 'setup')
-            t0 = now()
-            while self.run(h, 'true', timeout=30).returncode != 0:
-                if now() - t0 > 900:
-                    raise RuntimeError('ssh not reachable after 15 min')
-                time.sleep(15)
-            key = (self.cloud / 'relay_key').read_text()
-            pub = (self.cloud / 'relay_key.pub').read_text().strip()
-            r = self.run(h, f'umask 077; mkdir -p /root/.ssh; cat > /root/.ssh/relay_key; echo {shlex.quote(pub)} >> /root/.ssh/authorized_keys', input=key)
-            if r.returncode:
-                raise RuntimeError(f'relay key install failed: {r.stderr[-500:]}')
-            setup_err = {}
-            th = threading.Thread(target=self.install_stack, args=(h, setup_err))
-            th.start()
-            self.upload(h)
-            th.join()
-            if setup_err:
-                raise RuntimeError(setup_err['error'])
-            self.verify_files(h)
-            r = self.run(h, 'nvidia-smi -L')
-            if r.returncode or len(r.stdout.strip().splitlines()) != len(h['gpus']):
-                raise RuntimeError(f'GPU check failed: {r.stdout} {r.stderr}')
-            self.run(h, f"mkdir -p {shlex.quote(h['run_dir'] + '/logs')}")
-            self.set_state(h, 'ready', ready=now(), gpu_names=r.stdout.strip().splitlines())
+            for attempt in range(1, SETUP_TRIES + 1):
+                try:
+                    gpu_names = self.setup_once(h)
+                    break
+                except Exception as e:  # noqa: BLE001 - retried, then reported below
+                    status = self.verda.instance(h['instance_id']).get('status')
+                    if attempt == SETUP_TRIES or status != 'running':
+                        raise
+                    self.log(f"{name} setup attempt {attempt} failed ({str(e)[-400:]}); instance is {status}, retrying")
+                    time.sleep(30)
+            self.set_state(h, 'ready', ready=now(), gpu_names=gpu_names)
             self.log(f"{name} ready after {(now() - h['created']) / 60:.1f} min")
         except Exception as e:  # noqa: BLE001 - every provisioning failure is reported, never hidden
             self.set_state(h, 'setup_failed', error=str(e)[-1500:])
             self.log(f'{name} setup FAILED: {e}')
             if self.s['auto_delete']:
                 self.delete_host(h, 'setup failed')
+        finally:
+            self.release_mac_lock(h)
+
+    def setup_once(self, h):
+        """One setup attempt over ssh; safe to repeat after a dropped connection or a reboot."""
+        t0 = now()
+        while self.run(h, 'true', timeout=30).returncode != 0:
+            if now() - t0 > 900:
+                raise RuntimeError('ssh not reachable after 15 min')
+            time.sleep(15)
+        r = self.run(h, WAIT_FOR_BOOT, timeout=2400)
+        if r.returncode:
+            raise RuntimeError(f'waiting for first-boot scripts failed: {(r.stdout + r.stderr)[-300:]}')
+        key = (self.cloud / 'relay_key').read_text()
+        pub = shlex.quote((self.cloud / 'relay_key.pub').read_text().strip())
+        r = self.run(h, f'umask 077; mkdir -p /root/.ssh; cat > /root/.ssh/relay_key; '
+                        f'grep -qxF {pub} /root/.ssh/authorized_keys || echo {pub} >> /root/.ssh/authorized_keys', input=key)
+        if r.returncode:
+            raise RuntimeError(f'relay key install failed: {r.stderr[-500:]}')
+        setup_err = {}
+        th = threading.Thread(target=self.install_stack, args=(h, setup_err))
+        th.start()
+        try:
+            self.upload(h)
+        finally:
+            th.join()
+        if setup_err:
+            raise RuntimeError(setup_err['error'])
+        self.verify_files(h)
+        r = self.run(h, 'nvidia-smi -L')
+        if r.returncode or len(r.stdout.strip().splitlines()) != len(h['gpus']):
+            raise RuntimeError(f'GPU check failed: {r.stdout} {r.stderr}')
+        self.run(h, f"mkdir -p {shlex.quote(h['run_dir'] + '/logs')}")
+        return r.stdout.strip().splitlines()
+
+    def release_mac_lock(self, h):
+        with self.lock:
+            if self.mac_lock_holder == h['name']:
+                self.mac_lock_holder = None
+                self.mac_lock.release()
 
     def install_stack(self, h, err):
         script = ('set -e; export DEBIAN_FRONTEND=noninteractive; '
-                  'apt-get -o DPkg::Lock::Timeout=900 update -qq; '
-                  'apt-get -o DPkg::Lock::Timeout=900 install -y -qq clang python3-venv; '
+                  'n=0; until apt-get -o DPkg::Lock::Timeout=900 update -qq; do n=$((n+1)); [ $n -lt 10 ] || exit 1; sleep 20; done; '
+                  'n=0; until apt-get -o DPkg::Lock::Timeout=900 install -y -qq clang python3-venv; do n=$((n+1)); [ $n -lt 10 ] || exit 1; sleep 20; done; '
                   '[ -x /root/venv/bin/python ] || python3 -m venv /root/venv; '
                   '/root/venv/bin/pip install -q --upgrade pip; '
                   f'/root/venv/bin/pip install -q {PIP_PINS}; '
@@ -461,22 +498,31 @@ class Dispatcher:
     def upload(self, h):
         root = shlex.quote(h['root'])
         files = ' '.join(shlex.quote(f) for f in self.files)
-        sources = [x for x in self.hosts if x['state'] == 'ready' and x['transport'] == 'ssh' and x['name'] != h['name']]
         t0 = now()
-        for src in sources:   # machine-to-machine inside the data centre first
-            pull = (f"ssh -i /root/.ssh/relay_key -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/root/.ssh/relay_known "
-                    f"-o BatchMode=yes -o ConnectTimeout=15 root@{src['ip']} {shlex.quote(f'cd {root} && tar cf - {files}')} "
-                    f"| tar xf - -C {root}")
-            r = self.run(h, f'set -o pipefail; mkdir -p {root} && {pull}', timeout=3600)
-            if r.returncode == 0:
-                self.log(f"{h['name']}: copied files from {src['name']} in {(now() - t0) / 60:.1f} min")
-                return
-            self.log(f"{h['name']}: relay from {src['name']} failed ({r.stderr.strip()[-200:]}), trying next source")
-        pipe = (f'cd {shlex.quote(str(ROOT))} && COPYFILE_DISABLE=1 tar cf - {files} | '
+        tried = set()
+        while True:
+            sources = [x for x in self.hosts if x['state'] == 'ready' and x['transport'] == 'ssh'
+                       and x['name'] != h['name'] and x['name'] not in tried]
+            for src in sources:   # machine-to-machine inside the data centre first
+                tried.add(src['name'])
+                pull = (f"ssh -i /root/.ssh/relay_key -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/root/.ssh/relay_known "
+                        f"-o BatchMode=yes -o ConnectTimeout=15 root@{src['ip']} {shlex.quote(f'cd {root} && tar cf - {files}')} "
+                        f"| tar xf - -C {root}")
+                r = self.run(h, f'set -o pipefail; mkdir -p {root} && {pull}', timeout=3600)
+                if r.returncode == 0:
+                    self.log(f"{h['name']}: copied files from {src['name']} in {(now() - t0) / 60:.1f} min")
+                    return
+                self.log(f"{h['name']}: relay from {src['name']} failed ({r.stderr.strip()[-200:]}), trying next source")
+            if self.mac_lock_holder == h['name'] or self.mac_lock.acquire(timeout=20):
+                with self.lock:
+                    self.mac_lock_holder = h['name']
+                break
+        pipe = (f'cd {shlex.quote(str(ROOT))} && COPYFILE_DISABLE=1 tar --no-xattrs -cf - {files} | '
                 + self.remote_shell(h, f'mkdir -p {root} && tar xf - -C {root}'))
         r = subprocess.run(['bash', '-c', 'set -o pipefail; ' + pipe], capture_output=True, text=True, timeout=7200)
         if r.returncode:
-            raise RuntimeError(f'upload from the Mac failed: {r.stderr[-500:]}')
+            err = '\n'.join(l for l in r.stderr.splitlines() if 'unknown extended header' not in l)
+            raise RuntimeError(f'upload from the Mac failed: {err[-500:]}')
         self.log(f"{h['name']}: uploaded {self.manifest['bytes'] / 1e9:.2f} GB from the Mac in {(now() - t0) / 60:.1f} min")
 
     def verify_files(self, h):
