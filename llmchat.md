@@ -272,3 +272,44 @@ Built the cloud orchestrator for the full R3000 expanding run and left it ready;
 ---
 SESSION END: 2026-10-11 21:05 PDT | Agent: Claude Code (session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-12 15:16 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Arjun authorised the full cloud run with: 4 GPUs, $200 cap, auto-delete yes. He never answered the 40GB-GPU question, so the run rents 80GB A100s on spot only. It was launched with `cloud_run.py start --gpus 4 --budget-usd 200 --confirm-spend --auto-delete` under caffeinate. Run dir: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/` (status in `cloud/status.json`, log in `cloud/dispatch.log`).
+
+Training is on 3 GPUs (machines 02, 04, 07), not 4. About 36 h remain, against 28 h planned for 4 GPUs. Burn is $2.92/h. Spent was $5.87 at last check. Failed setups cost about $1.50.
+
+The first unit is home and verified: Y2026 seed 2. It took 92.2 min, ran 6 epochs, and its best epoch was 4. It holds 359,379 score rows, and its provenance records the hop from machine 06 to 04. Machine 02 trains at 17,000 images/s with the GPU 90% busy, matching the timing test.
+
+Failures, in order:
+- **Setup collisions.** Verda's first-boot apt scripts collided with our install. Two machines dropped about 3 min after boot and were auto-deleted.
+- **Manual kill truncated a file.** I killed an orphaned upload by hand, and `quality.parquet` on machine 02 was left at 237 MB of 1.08 GB. The SHA-256 check caught it. The re-upload took 16.9 min.
+- **Upload-slot race.** Machine 04 took the Mac upload slot the second 02 finished, so it uploaded from home instead of copying from 02.
+- **Spot reclaims.** Machines 05 and 06 were reclaimed (Verda status "discontinued"). The dispatcher marked each lost after 3 failed polls, requeued the unit, and deleted the instance and disk. Machine 05's SSH host key had changed because its IP was reassigned. The per-machine known_hosts file refused the stranger's machine.
+
+### Decisions Made
+- `cloud_run.py` is now v1.1:
+  - Setup waits for Verda's boot scripts.
+  - Each machine gets 3 tries before deletion.
+  - One Mac upload at a time; the others relay machine to machine. A relay took about 25 s, and machine 07 was ready in 3.8 min versus 37 min for the first machine.
+  - Commit `ef8952e` rechecks relay sources after taking the upload slot. It takes effect only on the next `resume`. The running dispatcher has the older code.
+- No H100 or RTX PRO 6000 was added, because neither was authorised. My recommendation is to keep waiting for A100s.
+
+### Constraints & Gotchas
+- Never manually kill upload tar or ssh processes. Truncated files are only caught at the hash check.
+- Verda had no A100s in any region at last check. A listing can still return "No capacity available". The dispatcher retries every 10 min.
+- The H100 on demand in FIN-02 was $4.05/h and the RTX PRO 6000 confidential-computing variant on spot in FIN-03 was $1.14/h. Neither has been timed.
+- A reclaimed unit loses work back to its last copied-home `last.pt`, at most 15 min once the first checkpoint exists.
+
+### Open Questions
+- Whether Arjun wants an H100 or other GPU added if A100s stay scarce.
+
+### Context for Next Session
+The dispatcher (started via `resume`) is running under caffeinate. The Mac must stay awake. If the dispatcher dies, run `cloud_run.py resume --run-dir <run dir>`. The watcher is `/private/tmp/claude-501/-Users-arjundivecha-Dropbox-AAA-Backup-A-Working-Pattern/cedcfbeb-8623-4981-801e-b50f89d6a359/scratchpad/watch_cloud.sh`. It alerts on a lost machine, a failed unit, the budget cap, a dispatcher stop, or every 3 h. At last check 1 of 135 units was done. Assembly and `report.py` run at home when all units finish.
+
+---
+SESSION END: 2026-10-12 15:16 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
