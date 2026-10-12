@@ -203,3 +203,34 @@ Stopped, resumable run: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Patter
 ---
 SESSION END: 2026-10-10 23:57 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-11 15:41 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Arjun asked whether the arXiv paper 2512.21804 (single-author Stanford project) had anything new for Pattern. File: `/Users/arjundivecha/.claude/uploads/cedcfbeb-8623-4981-801e-b50f89d6a359/3a376fd2-2512.21804.pdf` (file:///Users/arjundivecha/.claude/uploads/cedcfbeb-8623-4981-801e-b50f89d6a359/3a376fd2-2512.21804.pdf). Verdict: nothing new, and the headline result looks like leakage rather than prediction. This came from reading the paper only; no code was run and nothing was reproduced.
+
+The paper trains a 1-D CNN on raw daily prices for a few S&P 500 stocks. It reports up to 91% accuracy on JPMorgan's 30-day direction. Our models sit near 50.7% accuracy, which is what a real return edge looks like.
+
+Leakage points found:
+- **Split:** overlapping daily sliding windows are randomly shuffled (scikit-learn) into train, validation and test. Adjacent windows share almost all days and nearly always the same 30-day label, so the test set is the training set shifted by a day. The accuracy curves climb smoothly with epochs, consistent with memorisation.
+- **Scaling:** min-max scaling appears to be fit on the whole series.
+- **Adjusted prices:** the model sees both raw and split-adjusted prices, so their ratio reveals future splits. This is the same look-ahead as the $5 floor on split-adjusted prices found earlier.
+- **Missing evidence:** there is no portfolio, no cross-section, no benchmark and no out-of-sample period. Nothing in it is comparable to the Jiang-Kelly-Xiu replication.
+
+Arjun then asked for a reply to the tweet promoting the paper, and then for a harsher one. Several drafts were written (single reply, thread). Nothing was posted. The drafts target the promoting account, not the author, and keep Pattern's own replication numbers out.
+
+### Decisions Made
+- No GPU time on raw-price 1-D CNNs. The only idea not already used is feeding raw numbers to a 1-D network instead of rendering chart images, and with the leak removed there is no evidence it works.
+- Nothing in Pattern changes.
+
+### Constraints & Gotchas
+- When screening outside ML-for-prices papers, check first for a random shuffle of overlapping windows, full-sample scaling, and mixed adjusted and raw prices. Pattern's time-based split with a purge gap avoids the first.
+
+### Context for Next Session
+No state change. The stopped annual-retrain run, the GPU hand-off to Kronos and the 8xA100 rent-or-wait question are as recorded above.
+
+---
+SESSION END: 2026-10-11 15:41 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
