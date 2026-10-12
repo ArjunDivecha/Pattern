@@ -234,3 +234,22 @@ No state change. The stopped annual-retrain run, the GPU hand-off to Kronos and 
 ---
 SESSION END: 2026-10-11 15:41 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-11 19:10 PDT | Agent: Claude Code (session cedcfbeb)
+---
+
+### Session Summary
+Stopped the local R3000 run at the user's request so Kronos gets the MPS GPU (resumable; Y2000 done, Y2001 seeds 0-2 done). Ran a cloud timing test on a Verda 1xA100 80GB spot instance (`pattern-r3000-timing`, FIN-03, $0.96/h), then deleted it and its disk at the user's request. Results copied to `research/r3000_headline/runs/cloud_timing_A100_20261011/`.
+- Real trainer, 2013 fold: 17,000 training images/s with one process, GPU 90-100% busy. Two or four concurrent processes give the same aggregate (16,300/s): GPU-bound, so one process per GPU.
+- Validation/scoring: 60,700 images/s. A full 2000-fold seed took 358 s versus 361 s predicted (Mac: ~2,890 s), so the model of the run time holds.
+- Full run ~112 A100-hours at the observed 6.1 epochs per seed (74-164 h for 4-9 epochs); largest single unit 1.5 h. Spot ~$108, on demand ~$216. No 8xA100 availability on 2026-10-11; single A100s in FIN-01/02/03 and 2xA100 in FIN-02.
+
+### Constraints & Gotchas
+- rsync (macOS openrsync) splits remote paths on spaces; use `tar cf - ... | ssh host "tar xf - -C '<path>'"`. Mirror the Mac's absolute paths remotely so CURRENT.json and the run fingerprint work unchanged.
+- The image has gcc but not clang (fast.py calls clang): `apt-get install clang`.
+- Upload from home: 2.3 GB in ~15 min.
+
+---
+SESSION END: 2026-10-11 19:10 PDT | Agent: Claude Code (session cedcfbeb)
+---
