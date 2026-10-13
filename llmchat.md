@@ -386,3 +386,21 @@ Nothing needs doing until the watcher fires. If the dispatcher dies, run `cloud_
 ---
 SESSION END: 2026-10-12 20:34 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-12 23:35 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Three-hour status check on the cloud run (`/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/`). The run is on four GPUs again. A fourth A100, machine 13, has been stable since 04:24 UTC, after two more FIN-01 spot losses. 23 of 135 units are home and spend is $34.30. The projected finish is about 19 h out, around 01:00 UTC Wednesday, down from about 30 h. Total cost is tracking about $110 against the $200 cap. The watcher was re-armed with `/private/tmp/claude-501/-Users-arjundivecha-Dropbox-AAA-Backup-A-Working-Pattern/cedcfbeb-8623-4981-801e-b50f89d6a359/scratchpad/watch_cloud.sh 10800`.
+
+### Constraints & Gotchas
+- Machine 13 is the first fourth machine that has survived. Two more spot machines were lost before it, so the reclaim rate in FIN-01 stays high. Treat machine 13 as stable only while it keeps running, and do not assume the 19 h finish is firm.
+- The watcher script lives in the session scratchpad under `/private/tmp`, which is temporary.
+
+### Context for Next Session
+Nothing needs doing until the watcher fires. If the dispatcher dies, run `cloud_run.py resume --run-dir <run dir>`. If the scratchpad watcher script is gone, re-create it. It should tail the run log for LOST, FAILED, BUDGET and dispatcher-stop events and print a summary every 3 h. Assembly and `report.py` run at home when all 135 units finish.
+
+---
+SESSION END: 2026-10-12 23:35 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
