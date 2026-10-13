@@ -468,3 +468,37 @@ Nothing needs doing until the watcher fires. If the dispatcher dies, run `cloud_
 ---
 SESSION END: 2026-10-13 04:04 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-13 07:11 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Three-hour watcher summary for the cloud run, with a 2016–2026 interim spot test added at the user's request. Run dir R is `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/`.
+- **Run status:** 55 of 135 units are home, up from 39. The same four machines trained throughout, with no reclaims and no errors. Spend is $63 and the finish estimate is about midnight UTC. The watcher was re-armed with `watch_cloud.sh 10800` and the same alert rule.
+- **Spot test:** Test years 2016–2026 have all five seeds home. I ran `train.py --device cpu --years 2016..2026` into R (log `assemble.log`), then `report.py`, which wrote `report_20261013T133831Z/` (`report.html`, `metrics.xlsx`, `cohort_returns.parquet`). I then wrote and committed `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/verify_expanding.py`. It runs independent checks and works on partial runs. Outputs are in `R/verify_20261013T133940Z/` (`verification.json`, `by_year.xlsx`) and `R/verify_logs/verify_20261013.log`.
+
+### Results (2016–2026 only, interim)
+- **Rank signal:** Mean rank IC against next-month returns is 0.026, t-stat 4.0, positive in about two months out of three.
+- **Decile book:** The top-minus-bottom decile book earns 6.3%/yr at Sharpe 0.49 (t 1.6). 8% of 200 shuffled-score placebos did as well, so it is not significant on its own.
+- **Retrain vs train-once:** Retraining every year beats the train-once run (`runs/fixed2000_I20R20_v2_20261010T234913Z`, `report_20261011T034106Z/cohort_returns.parquet`) in 8 of 11 years, Sharpe 0.49 vs 0.35. The gain is almost all small caps; large caps slightly favour train-once.
+- **Reversal check:** The book has 0.06 correlation with a plain 20-day reversal book.
+- **IC vs book gap (surprise):** In 2025 the IC was positive in 9 of 12 months, yet the decile book lost 14.5%. The information appears to sit across the whole cross-section, while the extreme deciles are noisy small caps.
+
+### Decisions Made
+- Do not interpret 0.49 against the old R1000 headline Sharpe of 1.22 (1999–2026). That run used log returns and had survivorship gaps, and 2016–2026 is the hardest stretch for reversal-style signals.
+
+### What To Build Next
+- After all 135 units finish, test a rank-weighted book that holds every name. It uses the same scores with a different portfolio construction, so it is not a new model.
+- Judge the headline only once the 2000–2015 folds are in.
+
+### Constraints & Gotchas
+- **Integrity checks all passed:** My independent long-short recompute matches `report.py` to the 16th decimal. Re-scoring 600 random samples on the Mac with each year's cloud-trained models gives 0.999998 correlation with the stored scores, and 99.5% agree within 1e-4. Shifting the rows by one drops the correlation to zero, so the scores are on the right rows. The residual differences are CUDA-vs-CPU rounding. Every cohort sits inside its own test year, at least 59 sessions after that fold's validation window ends.
+- The interim assembly and report write into the live run dir but did not disturb the run.
+
+### Context for Next Session
+Final assembly and `report.py` still run at home once all 135 units finish, and will produce a new report directory that supersedes `report_20261013T133831Z`. If the dispatcher dies, run `cloud_run.py resume --run-dir <run dir>`.
+
+---
+SESSION END: 2026-10-13 07:11 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
