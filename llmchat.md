@@ -404,3 +404,42 @@ Nothing needs doing until the watcher fires. If the dispatcher dies, run `cloud_
 ---
 SESSION END: 2026-10-12 23:35 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-13 01:04 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Spot reclaims hit the two long-running core machines on the cloud run (`/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/`).
+- Machine 02 (FIN-03, running since the start) was reclaimed at 07:06 UTC, 35 min into 2021 seed 2. Its checkpoint had been copied home 10 min earlier, so little was lost.
+- Machine 04 was reclaimed at 07:21 UTC, taking 2021 seed 4 with it. That unit is back in the queue.
+- The dispatcher rented machine 14 as a replacement. It is running 2021 seed 2, resuming from the saved checkpoint.
+- Status at the last check: 27 of 135 units home, $39.80 spent, three GPUs training, and a fourth being rented.
+- Seven machines have been reclaimed so far and five failed during setup, costing about $5 in setup and lost work.
+- The finish estimate is about 18 h if the run returns to four GPUs, or about 24 h if churn continues through European daytime. Projected total cost is about $115.
+
+### Decisions Made
+- Stay on spot and let the dispatcher absorb the churn. On-demand A100s would end the reclaims, but the remaining work would cost about $225, over the $200 cap.
+- Replaced the watcher alert rule. It now interrupts only when:
+  - a unit errors or is reclaimed four times;
+  - no GPU has trained for 30 min;
+  - the budget cap is hit;
+  - the dispatcher stops.
+  It no longer reports each lost machine. Otherwise it prints a summary every 3 h.
+- Killed the old watcher (`pkill -f scratchpad/watch_cloud.sh`), rewrote the script, and re-armed it with `/private/tmp/claude-501/-Users-arjundivecha-Dropbox-AAA-Backup-A-Working-Pattern/cedcfbeb-8623-4981-801e-b50f89d6a359/scratchpad/watch_cloud.sh 10800`.
+
+### Architecture / Design
+- Checkpoints copy home every 15 min, so a reclaim costs at most about 15 min of training on that unit. They land in `<run dir>/cloud/partial/<unit>`, for example `Y2021_s2`.
+- A lost machine is recorded as `deleted_why=='lost'`, not only `state=='lost'`. The watcher's lost-machine count was patched with `sed` to check both.
+
+### Constraints & Gotchas
+- The earlier "stable A100s 02, 04, 07" assumption is now wrong, because 02 and 04 were both reclaimed. No FIN machine is dependable. Reclaims appear to cluster in European daytime, when Finnish spot demand peaks.
+- The log does not confirm which three machines are training. Check `<run dir>/cloud/dispatch.log` for the current set.
+- The watcher script lives in the scratchpad under `/private/tmp`, which is temporary.
+
+### Context for Next Session
+Nothing needs doing until the watcher fires. If the dispatcher dies, run `cloud_run.py resume --run-dir <run dir>`. If the scratchpad watcher script is gone, re-create it with the alert rule above. Assembly and `report.py` run at home when all 135 units finish.
+
+---
+SESSION END: 2026-10-13 01:04 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
