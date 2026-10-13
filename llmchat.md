@@ -443,3 +443,28 @@ Nothing needs doing until the watcher fires. If the dispatcher dies, run `cloud_
 ---
 SESSION END: 2026-10-13 01:04 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-13 04:04 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Three-hour watcher summary for the cloud run (`/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/`):
+- 39 of 135 units are home, up from 27 at the previous check.
+- Four GPUs are training, so the dispatcher is back to full width.
+- Spend is $51.29, up from $39.80.
+- The finish estimate improved to about 14.5 h out, around 01:00 UTC Wednesday 2026-10-14. The earlier estimate was 18–24 h.
+- Projected total cost is about $110, down from about $115.
+- Spot reclaimed two more machines, nine in all. The dispatcher replaced both with no unit erroring or stuck, so no alert rule fired.
+- The watcher was re-armed with `/private/tmp/claude-501/-Users-arjundivecha-Dropbox-AAA-Backup-A-Working-Pattern/cedcfbeb-8623-4981-801e-b50f89d6a359/scratchpad/watch_cloud.sh 10800`, using the same 3 h summary interval and alert rule as before.
+
+### Constraints & Gotchas
+- The faster estimate depends on four GPUs staying up. Reclaims have continued (7 to 9 in one interval), so treat the ~14.5 h figure as a best case. The earlier warning that churn clusters in European daytime still applies.
+- The watcher script lives in the scratchpad under `/private/tmp`, which is temporary.
+
+### Context for Next Session
+Nothing needs doing until the watcher fires. If the dispatcher dies, run `cloud_run.py resume --run-dir <run dir>`. Assembly and `report.py` run at home when all 135 units finish.
+
+---
+SESSION END: 2026-10-13 04:04 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
