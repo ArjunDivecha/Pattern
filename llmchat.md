@@ -334,3 +334,26 @@ Nothing needs doing until the watcher fires, which it does on a lost machine, a 
 ---
 SESSION END: 2026-10-12 15:59 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-12 18:25 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Check on the cloud run (`/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/`). Another fourth spot A100 (machine 09, instance suffix `034158-09`) was reclaimed by Verda. It came up in under 5 min by relaying from machine 02, trained the 2025 seed-4 unit for about 16 min, and was then taken back. The dispatcher requeued the unit on its own. No manual action was taken.
+
+Status: 8 of 135 units home, spend $17.25. The three original machines (02, 04, 07) have run steadily for hours. On 3 GPUs the finish is about 33 h out, down from the earlier ~36 h estimate. The watcher was re-armed with `/private/tmp/claude-501/-Users-arjundivecha-Dropbox-AAA-Backup-A-Working-Pattern/cedcfbeb-8623-4981-801e-b50f89d6a359/scratchpad/watch_cloud.sh 10800`, a 3 h heartbeat.
+
+### Decisions Made
+- Leave the dispatcher retrying for a fourth GPU every 10 min. The churn is cheap, so there is no reason to intervene.
+
+### Constraints & Gotchas
+- Every spot A100 that appeared in FIN-01 since the afternoon has been reclaimed within about 20 min: machines 05, 06, 08 and 09. Only 02, 04 and 07 are stable. Treat any fourth machine as transient and do not plan the finish time around it.
+- Each failed fourth machine costs about $0.30 plus a few minutes of lost training. A reclaimed unit loses work back to its last copied-home `last.pt`.
+
+### Context for Next Session
+Nothing needs doing until the watcher fires. It alerts on a lost machine, a failed unit, the budget cap, a dispatcher stop, or every 3 h. If the dispatcher dies, run `cloud_run.py resume --run-dir <run dir>`. Assembly and `report.py` run at home when all units finish.
+
+---
+SESSION END: 2026-10-12 18:25 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
