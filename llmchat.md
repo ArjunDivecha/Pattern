@@ -502,3 +502,24 @@ Final assembly and `report.py` still run at home once all 135 units finish, and 
 ---
 SESSION END: 2026-10-13 07:11 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-13 10:05 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Another three-hour watcher cycle on the cloud run, with no losses and no errors. Run dir R is `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/`.
+- **Run status:** 73 of 135 units are home, up from 55. Spend is $74.77. The projected finish is about 23:00 UTC, roughly six hours out.
+- **Watcher:** Re-armed with `watch_cloud.sh 10800` (3-hour interval, same alert rule) via the scratchpad script under `/private/tmp`.
+- **No new analysis:** The 2016–2026 interim results from the previous entry are unchanged.
+
+### Constraints & Gotchas
+- The finish projection is probably slightly pessimistic. The remaining units are the early test years (2000 onward), which have smaller training sets and run faster.
+- The watcher script lives in the scratchpad under `/private/tmp`, which is temporary.
+
+### Context for Next Session
+Nothing needs doing until the watcher fires. If the dispatcher dies, run `cloud_run.py resume --run-dir <run dir>`. Assembly and `report.py` run at home when all 135 units finish, and will supersede `report_20261013T133831Z`.
+
+---
+SESSION END: 2026-10-13 10:05 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
