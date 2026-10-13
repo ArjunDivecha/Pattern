@@ -357,3 +357,32 @@ Nothing needs doing until the watcher fires. It alerts on a lost machine, a fail
 ---
 SESSION END: 2026-10-12 18:25 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-12 20:34 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Checked the cloud run (`/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/`). It is on track: 13 of 135 units are home, spend is $23.59, and the finish on the three stable A100s (machines 02, 04, 07) is about 30 h out, down from about 33 h. Units are running faster than estimated. The latest finished unit took 57 min against an 85 min estimate, because early stopping ends some seeds sooner.
+
+The latest failure was machine 10, another FIN-01 spot A100. Verda reclaimed it during setup, and the dispatcher deleted it on its own. No manual action was taken.
+
+### Decisions Made
+- Narrowed the watcher's alert rule so it interrupts only when action is needed:
+  - a machine that has finished units is lost;
+  - a unit fails;
+  - the budget cap is hit;
+  - the dispatcher stops.
+  Failed fourth-GPU boot attempts no longer alert. Otherwise it sends a status summary every 3 h.
+- Re-armed the watcher with `/private/tmp/claude-501/-Users-arjundivecha-Dropbox-AAA-Backup-A-Working-Pattern/cedcfbeb-8623-4981-801e-b50f89d6a359/scratchpad/watch_cloud.sh 10800`. The script's grep filter was edited in place. It lives in the session scratchpad, which is temporary.
+
+### Constraints & Gotchas
+- Spot-reclaimed fourth machines so far: 05, 06, 08, 09 and 10. Only 02, 04 and 07 are stable.
+- Early stopping makes unit times variable, so the finish estimate will keep drifting. The latest reading is about 30 h.
+
+### Context for Next Session
+Nothing needs doing until the watcher fires. If the dispatcher dies, run `cloud_run.py resume --run-dir <run dir>`. If the scratchpad watcher script is gone, re-create it. Its job is to tail the run log for LOST, FAILED, BUDGET and dispatcher-stop events and to print a summary every 3 h. Assembly and `report.py` run at home when all 135 units finish.
+
+---
+SESSION END: 2026-10-12 20:34 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
