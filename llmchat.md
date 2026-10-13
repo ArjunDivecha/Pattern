@@ -313,3 +313,24 @@ The dispatcher (started via `resume`) is running under caffeinate. The Mac must 
 ---
 SESSION END: 2026-10-12 15:16 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-12 15:59 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Check on the cloud run (`/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/`). The run is healthy, with 3 of 135 units home. Machines 02, 04 and 07 are each training a unit. Spend is $9.67.
+
+The dispatcher rented a fourth A100 (machine 08, instance suffix `034158-08`) at 22:12 UTC. It never became reachable over SSH, and Verda never reported it as running. The likely cause is a spot reclaim during boot. After 15 min the dispatcher deleted the instance and disk on its own. The loss was about $0.26. It keeps retrying for a fourth GPU every 10 min. No manual action was taken.
+
+The watcher was re-armed with `/private/tmp/claude-501/-Users-arjundivecha-Dropbox-AAA-Backup-A-Working-Pattern/cedcfbeb-8623-4981-801e-b50f89d6a359/scratchpad/watch_cloud.sh 10800`, a 3 h heartbeat.
+
+### Constraints & Gotchas
+- A rented spot instance can fail to boot at all, with no SSH and no "running" status. The dispatcher's 15 min boot timeout handles this, and the cost is small. It is not a run failure.
+
+### Context for Next Session
+Nothing needs doing until the watcher fires, which it does on a lost machine, a failed unit, the budget cap, a dispatcher stop, or every 3 h. If the dispatcher dies, run `cloud_run.py resume --run-dir <run dir>`. Training is still on 3 GPUs, so the earlier estimate of about 36 h remaining holds.
+
+---
+SESSION END: 2026-10-12 15:59 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
