@@ -523,3 +523,29 @@ Nothing needs doing until the watcher fires. If the dispatcher dies, run `cloud_
 ---
 SESSION END: 2026-10-13 10:05 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-13 13:05 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Another three-hour watcher cycle on the cloud run, quiet again with no losses and no errors. Run dir R is `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/`.
+- **Run status:** 99 of 135 units are home, up from 73. Spend is $86.53. About 2.6 hours remain, so the finish should be around 22:00 UTC. That is earlier than the previous projection of about 23:00 UTC, which fits the remaining early test years running faster.
+- **Watcher:** Re-armed with `watch_cloud.sh 10800` (3-hour interval, same alert rule) via the scratchpad script under `/private/tmp`.
+- **No new analysis:** The 2016–2026 interim results from the earlier entry are unchanged.
+
+### What To Build Next
+- When the last unit lands, the dispatcher deletes the cloud machines on its own, builds the ensembles and runs the full report.
+- Then rerun `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/verify_expanding.py` on all 27 years and deliver the full result to Arjun.
+- Still pending from before: the rank-weighted all-names book, and judging the headline only once the 2000–2015 folds are in.
+
+### Constraints & Gotchas
+- The watcher script lives in the scratchpad under `/private/tmp`, which is temporary.
+- The new report will supersede `report_20261013T133831Z`.
+
+### Context for Next Session
+Nothing needs doing until the watcher fires. If the dispatcher dies, run `cloud_run.py resume --run-dir <run dir>`. After the final report appears, confirm the cloud machines are actually deleted, since spend is already $86.53.
+
+---
+SESSION END: 2026-10-13 13:05 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
