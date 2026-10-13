@@ -2287,3 +2287,35 @@ ambiguous shot would have.
 - Australia's data ends 2020; its 191 months exclude the recent period entirely.
 - Prices are local-currency and close-to-close, so dividends are missing —
   which largely cancels in a long/short.
+
+## M.  The headline rerun on corrected data — R3000, 2000–2026 (2026-10-13)
+
+The I20/R20 expanding-window CNN was retrained from scratch on the v2 frozen snapshot
+(`data/frozen/pattern_daily_v2_20261010`): point-in-time Russell 3000 membership,
+survivorship-certified from 2000, simple TRI returns, delisting returns kept, 5 seeds,
+annual folds 2000–2026 with a 30% validation window and a 58-session gap. 135 (year, seed)
+units trained on Verda spot A100s in ~26 h for $95 (`research/r3000_headline/cloud_run.py`).
+
+**Result.** The signal is real but about half the old headline, and it lives entirely
+outside the largest 1,000 names. Gross decile long-short, all names, bankrupt at last price:
++8.9%/yr, Sharpe 0.72, NW t 3.9 over 333 monthly cohorts (old R1000 headline: Sharpe 1.22,
+t 8.0). The large-cap book (top 1,000 by cap, an R1000 proxy) is flat: +0.9%/yr, Sharpe 0.09.
+Small caps carry it: +11.6%/yr, Sharpe 0.89. A $5 traded-price floor costs little
+(Sharpe 0.67). Most of the spread is the short leg: the bottom decile earns 4.4%/yr
+against 10.7% for the equal-weight benchmark, the top decile 13.3%. The last three years are
+flat and the last twelve months negative (−12%).
+
+**Checks (`verify_expanding.py`).** Independent recompute matches report.py to 1e-16;
+600 samples re-rendered and re-scored on CPU with each year's own models match the stored
+CUDA scores (corr 0.99998, 99.5% within 1e-4; shifting one row destroys it); every cohort
+sits in its own test year ≥59 sessions after validation end; none of 200 within-date
+placebos reaches the real t. Rank IC 0.026, NW t 7.2, positive in 66% of months — the
+ranking is stronger than the decile book shows. Correlation with a plain 20-day reversal
+book is −0.21, so this is not reversal. Annual retraining beats the train-once model
+(Sharpe 0.72 vs 0.57, better in 16 of 27 years).
+
+Caveat: yearly figures move by several points with the cohort phase (the interim 2016–2026
+report, phased from 2016, gave 2016 −4.7% vs −8.0% here), so read single years as noisy.
+
+Files: `research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/`
+(`report_20261013T215330Z/`, `verify_20261013T215356Z/`).

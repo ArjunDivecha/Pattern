@@ -549,3 +549,63 @@ Nothing needs doing until the watcher fires. If the dispatcher dies, run `cloud_
 ---
 SESSION END: 2026-10-13 13:05 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-13 14:24 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Discussion only, with no files changed and no jobs started. Arjun asked what the finished cloud run will produce and whether the trained models can be applied to other countries. Both answers are plans, not results. Nothing was run on foreign data.
+
+### Decisions Made
+No decisions yet. Recommended order once the run lands tonight:
+1. Settle the headline. Compare the full-period Sharpe with the old R1000 figure of 1.22 to see how much of the old result was artifacts. Write the verdict into Investment Learnings, which must exist before any fork or V2 of this project family.
+2. Test rank-weighted all-names, size- or sector-neutral, and quintile books on the same scores, with no retraining.
+3. Slice the edge by size, volatility, recent return, sector and liquidity. Recheck the old surviving cell (mid-cap × high-vol × recent losers) on the corrected data.
+4. Regress the long-short on reversal, momentum, size and volatility. The spot test already showed 0.06 correlation with plain reversal.
+5. Judge the scores against 5-day and 60-day forward returns.
+6. Score live with the 2026 models using `scripts/score_live.py` and the webapp, and paper-track the lists.
+7. Compare five seeds with one, and neighbouring-year models.
+
+### Architecture / Design
+The final deliverable is about 20M CNN scores (roughly 750k per year across about 3,000 names and 253 sessions, for 2000 to mid-2026), plus 135 models and the full report. The run directory is under 2 GB now and will reach about 4 GB. The report covers deciles, the long-short, the equal-weight benchmark over four windows, two bankruptcy treatments, two $5 price floors, and large-cap and small-cap books.
+
+Proposed international transfer:
+- Score each foreign year with the US model for the same year, which was trained only on earlier data. This is point-in-time and fits nothing on foreign data.
+- Step 1 is a zero-shot test on the panels already on disk (UK 525 names, Japan 224, Australia 407, from the Kronos project). The pass bar is written down before running: positive with t-stat ≥ 2 in at least 2 of 3 markets, the same bar as the last international test. UK scoring takes about 20 minutes on the Mac GPU.
+- Step 2, only if step 1 passes or comes close: a broad universe with small caps (FTSE All-Share and TOPIX), pulled from Bloomberg with point-in-time membership.
+
+### Constraints & Gotchas
+- **Prior evidence is against it.** A CNN trained on the Nikkei 225 had a long-short Sharpe of 0.09 (t = 0.5). That is in `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/runs/nky_expanding/backtest_d10/backtest_summary.xlsx`. It used only 225 names, so it says little about transfer. The US models also failed on ETFs and single-stock ETFs, and the spot test showed a Sharpe of only 0.31 in US large caps.
+- **The signal lives in small, volatile, beaten-down names.** The panels on disk are mostly large caps, so step 1 mostly tests the weak part.
+- **The on-disk panels are flawed.** They use current index membership, which favours survivors. They are in local currency without dividends, and Australia ends in 2020.
+- **The Bloomberg pull is rate-limited.** Run it only after the midnight Pacific reset.
+
+### Open Questions
+- Arjun's call: should the Bloomberg Nikkei panel, treated as a sealed holdout, stay out of the transfer test? The recommendation is to leave it out.
+- Arjun's call: wait for tonight's run so the transfer uses all 27 years of models rather than 2016 onward? The recommendation is to wait.
+
+### Context for Next Session
+Nothing needs doing until the cloud run finishes. After that, do item 1, then item 2. International transfer starts only with Arjun's go-ahead and the pass bar fixed in writing.
+
+---
+SESSION END: 2026-10-13 14:24 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+---
+SESSION START: 2026-10-13 15:10 PDT | Agent: Claude Code (session cedcfbeb)
+---
+
+### Session Summary
+The R3000 expanding headline run finished on Verda: 135/135 units, $95.28, all machines deleted by the dispatcher. Full result in README §M. LS Sharpe 0.72 (t 3.9), large caps flat (0.09), small caps 0.89; rank IC 0.026 (t 7.2); every verification check passed (`verify_expanding.py`, new).
+- Spot capacity in FIN-01 churned all day: 9 machines reclaimed, 5 setup failures; checkpoints went home every 15 min, so no unit restarted from scratch after its first sync.
+- cloud_run 1.1: waits for cloud-init and the apt locks, gives each machine 3 setup tries, and sends only one upload from the Mac at a time (others relay from a ready machine). Commit ef8952e fixes a race in which a machine took the Mac slot just as a relay source became ready.
+
+### Constraints & Gotchas
+- Verda's first-boot cloud-init holds the apt lock for minutes; installing beside it fails.
+- Never kill an upload by hand while a second upload targets the same machine: it truncated a file (the hash check caught it).
+- Yearly LS numbers depend on cohort phase; compare runs on the same phase.
+
+---
+SESSION END: 2026-10-13 15:10 PDT | Agent: Claude Code (session cedcfbeb)
+---
