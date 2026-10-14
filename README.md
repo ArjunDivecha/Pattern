@@ -2319,3 +2319,25 @@ report, phased from 2016, gave 2016 −4.7% vs −8.0% here), so read single yea
 
 Files: `research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/`
 (`report_20261013T215330Z/`, `verify_20261013T215356Z/`).
+
+### M.2  Decile profile and factor neutralisation (`decile_profile.py`, `neutralize.py`)
+
+The raw decile profile is close to monotone (rank correlation 0.89 across the ten deciles;
+0.96 in small caps), but lopsided: D1 trails equal weight by 6.3%/yr (t −4.1), D10 leads by
+2.6%. The bottom decile is small, volatile, low-priced and beaten down (median daily vol 3.0%
+vs 2.1% in D10; 19% of names under $5 vs 5%).
+
+Neutralising the score each cohort date against price-based controls (60-day vol, idiosyncratic
+vol, beta, max daily return, 5d and 1m return, 12-1 momentum, market cap, dollar volume, price
+level, distance from 52-week high, GICS sector) keeps a significant residual: Fama-MacBeth CNN
+coefficient 0.37% per 20 sessions, NW t 4.6, with every control in the regression. The neutralised
+D10−D1 book falls from +8.9%/yr (Sharpe 0.72) to +3.5%/yr (Sharpe 0.56, t 2.7); rank IC t 6.2.
+Volatility, lottery, size/liquidity and the distress proxies each explain roughly half the raw
+spread on their own; reversal and momentum do not (neutralising them raises the Sharpe to ~0.8,
+because the CNN leans slightly toward recent winners). The neutralised profile loses the deep D1
+hole (−6.3 → −0.7%) and keeps the top decile (+2.6 → +2.8%): the avoid-the-losers effect is mostly
+known factors; what is left is more symmetric. Large caps show nothing in any specification.
+Not tested: accounting quality, value, profitability (no fundamentals beyond shares in the snapshot).
+Sector is known for only 57% of rows (security-master GICS, current, not point-in-time).
+
+Files: `runs/headline_I20R20_v2_cloud_20261012T034158Z/{decile_profile_20261013T222832Z, neutralize_20261014T001818Z}/`.
