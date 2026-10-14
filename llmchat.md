@@ -609,3 +609,45 @@ The R3000 expanding headline run finished on Verda: 135/135 units, $95.28, all m
 ---
 SESSION END: 2026-10-13 15:10 PDT | Agent: Claude Code (session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-13 15:59 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Built a full-decile profile of the finished R3000 expanding run (README §M) instead of only the top-minus-bottom spread. Deleted the three test directories `research/r3000_headline/runs/cloud_localtest_*` (1.18 GB freed). Kept the host-key files in `~/.ssh/pattern_cloud/headline_I20R20_v2_cloud_20261012T034158Z/` because they protect against Verda IP reuse if the run is ever resumed. New script `decile_profile.py` was committed in d955f2c. Its output is in `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/decile_profile_20261013T222832Z/` (`decile_profile.pdf`, `decile_profile.xlsx`, `summary.json`). A chart-margin fix (`ax.margins(y=0.18)`) was applied via sed after viewing the PDF.
+
+### Decisions Made
+- Headline stands but is weaker than the old R1000 result (LS Sharpe 0.72, t 3.9, against the old Sharpe 1.22, t 8). The old Investment Learnings entry (t about 8 on R1000) needs updating. A draft via the verdict skill was offered and not yet done.
+- Reframe the model as an avoid-list signal, not a winner-picker.
+
+### Architecture / Design
+`decile_profile.py` takes `--report-dir` and reads `cohort_returns.parquet`, variant "all, bankrupt at last price". It splits by period, size (large and small caps), five-year block, and a $5 price floor.
+
+### What To Build Next
+- Update the Investment Learnings entry with the corrected result.
+- Test a rank-weighted book holding every name (rank IC t 7.2 against decile LS t 3.9 suggests the decile book leaves signal unused).
+- Test an avoid-list book (market minus the bottom decile or two) and a top-3 minus bottom-3 book.
+- Zero-shot international test, as already planned.
+
+### Constraints & Gotchas
+- Avoid-list numbers are in-sample descriptive, taken from the same run. Treat them as leads, not validated strategies. The bottom decile's persistence across blocks is the sturdy part.
+- The last 12 months inverted: the bottom decile beat the market by 7 points and the top decile lagged by 5. The last three years are flat.
+
+### Open Questions
+- Is the top-decile edge real, given it was flat to negative in 2010–19 and came from 2000–09 and 2020–26?
+
+### Context for Next Session
+Key findings, all gross, equal-weight market as benchmark:
+- Decile number against average return has rank correlation 0.89. For small caps it is 0.96.
+- The bottom decile trails by 6.3 points a year (t −4.1). The second decile trails by 2.5. The top three deciles beat the market by only 2 to 2.6 points.
+- A dollar in the bottom decile grew to about $1.25 from 2000 to 2026. The equal-weight market grew to about $9.
+- Market minus the bottom decile has Sharpe 0.79, against 0.72 for the headline.
+- Top three minus bottom three has Sharpe 0.71 at two-thirds of the volatility.
+- Holding everything except the bottom two deciles adds about 1.1 points a year over equal weight.
+- Small caps: top decile +4.2 points and bottom −7.3 points against the market. Large caps: the top decile slightly lags, and the bottom lags by only 1.8 points.
+- The bottom decile underperformed in every five-year block, by 3.5 to 12 points a year.
+
+---
+SESSION END: 2026-10-13 15:59 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
