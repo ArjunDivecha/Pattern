@@ -1,6 +1,6 @@
 """
 Script: neutralize.py
-Version: 1.0 (2026-10-13)
+Version: 1.1 (2026-10-14)
 
 Description:
     Is the CNN's decile staircase a new signal, or a known factor in disguise? For the R3000
@@ -24,7 +24,8 @@ Description:
       vol_60d              std of daily total returns, 60 sessions
       ivol_60d, beta_60d   residual std and beta against the equal-weight daily market, 60 sessions
       max_21d              largest daily return in the past 21 sessions (lottery)
-      log_mcap             point-in-time shares outstanding x traded close (as report.py)
+      log_mcap             point-in-time restated shares x split-adjusted close (mcap.py; v1.0 used
+                           the traded close, which inflated companies that later split)
       log_dv_60d           log mean daily dollar volume (traded close x volume), 60 sessions
       log_price            log traded close (low-price / distress proxy)
       dist_52wh            close / highest close of the past 252 sessions (George-Hwang)
@@ -73,6 +74,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from prepare import resolve_dataset, H  # noqa: E402
 from train import load_panel  # noqa: E402
 from verify_fixed import nw_t, PPY  # noqa: E402
+from mcap import market_caps  # noqa: E402
 
 FUND = ROOT.parent / 'Global Data Mart/sources/equities/data/vintages/2026-06-30/fundamentals.parquet'
 DEC = [f'D{k}' for k in range(1, 11)]
@@ -145,13 +147,8 @@ def build_characteristics(root, sc):
             'mom_12_1', 'log_dv_60d', 'log_price', 'dist_52wh']
     out = sc.merge(p[keep], on=['security', 'date'], how='left', validate='one_to_one')
     log('market cap')
-    sh = pd.read_parquet(FUND, filters=[('field', '==', 'BS_SH_OUT'), ('period_type', '==', 'quarterly')],
-                         columns=['security', 'availability_date', 'value'])
-    sh = sh.dropna().sort_values('availability_date').drop_duplicates(['security', 'availability_date'], keep='last')
-    sh['security'] = sh.security.astype(str)
-    out = pd.merge_asof(out.sort_values('date'), sh.rename(columns={'availability_date': 'date', 'value': 'shares'}).sort_values('date'),
-                        on='date', by='security', direction='backward')
-    mcap = out.shares * out.close_nominal
+    out = out.sort_values('date').reset_index(drop=True)
+    mcap = market_caps(root, out)
     out['log_mcap'] = np.log(mcap.where(mcap > 0))
     out['cap_rank'] = mcap.groupby(out.date).rank(ascending=False, method='first')
     sm = pd.read_parquet(root / 'security_master.parquet', columns=['security', 'gics_sector_name'])

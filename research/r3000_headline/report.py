@@ -1,6 +1,6 @@
 """
 Script: report.py
-Version: 1.0 (2026-10-10)
+Version: 1.1 (2026-10-14)
 
 Description:
     Portfolio report for the R3000 headline rerun. Reads the ensemble scores written by
@@ -18,8 +18,10 @@ Description:
       - price floor variants: none, $5 on the traded (nominal) close at formation, and
         $5 on the split-adjusted close (shown only to measure the look-ahead it causes);
       - size slices: large = top 1000 eligible names by market cap at formation (R1000
-        proxy), small = the rest (R2000 proxy). Cap = latest shares outstanding filed on
-        or before the formation date x traded close.
+        proxy), small = the rest (R2000 proxy). Cap = latest restated shares outstanding
+        filed on or before the formation date x split-adjusted close (mcap.py). v1.0 used the
+        traded close, which inflated every company that later split and corrupted the
+        large/small split; fixed in v1.1.
     Samples whose outcome is unknown for other reasons (a missing bar in the horizon)
     are dropped from that cohort and counted in the output.
 
@@ -61,6 +63,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from prepare import resolve_dataset, H  # noqa: E402
+from mcap import market_caps  # noqa: E402
 
 FUND = ROOT.parent / 'Global Data Mart/sources/equities/data/vintages/2026-06-30/fundamentals.parquet'
 PERIODS_PER_YEAR = 252 / H
@@ -122,15 +125,9 @@ def main():
     first = sc.session_position.min()
     sc = sc[(sc.session_position - first) % H == 0].copy()
 
-    # Market cap at formation (point-in-time shares x traded close).
-    sh = pd.read_parquet(FUND, filters=[('field', '==', 'BS_SH_OUT'), ('period_type', '==', 'quarterly')],
-                         columns=['security', 'availability_date', 'value'])
-    sh = sh.dropna().sort_values('availability_date').drop_duplicates(['security', 'availability_date'], keep='last')
-    sh['security'] = sh.security.astype(str)
-    sc = sc.sort_values('date')
-    sc = pd.merge_asof(sc, sh.rename(columns={'availability_date': 'date', 'value': 'shares'}).sort_values('date'),
-                       on='date', by='security', direction='backward')
-    sc['mcap'] = sc.shares * sc.close_nominal
+    # Market cap at formation: point-in-time restated shares x split-adjusted close (mcap.py).
+    sc = sc.sort_values('date').reset_index(drop=True)
+    sc['mcap'] = market_caps(root, sc)
     sc['cap_rank'] = sc.groupby('date').mcap.rank(ascending=False, method='first')
 
     # Realised cohort return under each terminal assumption.

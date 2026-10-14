@@ -682,3 +682,28 @@ Still to do: update Investment Learnings, test quality, value and profitability 
 ---
 SESSION END: 2026-10-13 17:50 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-13 19:04 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+The user asked for a plain-English account of exactly what the factor-neutralisation test did (`neutralize.py`, output dir `neutralize_20261014T001818Z/`, both recorded above). The assistant gave it in chat, as a six-step walkthrough. No new analysis was run. No file was written for it, and the reply was cut off mid-sentence in the "One subtlety" paragraph, so the removing-reversal-and-momentum point was not fully restated.
+
+### Decisions Made
+- Plain-English framing for the headline: about 60% of the CNN's apparent edge was recognising stock types investors already knew to avoid. The other 40% is real and significant but worked in the 2000s and has been flat since 2012.
+
+### Architecture / Design
+Method as described to the user. These details were not in the earlier log entries:
+- **Controls:** eleven per-stock traits, using only information available on each ranking date. They cover 3-month total volatility, idiosyncratic volatility, and market beta; the largest single-day jump in the past month; 1-week and 1-month returns; 12-1 momentum; market cap and daily dollar volume; share price and distance below the 52-week high. Sector is added as well.
+- **Scaling:** each trait is ranked cross-sectionally every month, which puts the traits on one scale and limits the influence of outliers.
+- **Head-to-head test:** a monthly cross-sectional regression of next-month return on the CNN rank plus all traits, run over the 333 months and checked for how consistently the CNN coefficient is positive.
+- **Residualised portfolios:** each month the CNN score is regressed on the traits, the fitted part is subtracted, and stocks are re-sorted into deciles on the leftover. This is run one trait group at a time and then for all traits together.
+- **Residual score:** it is still 91% correlated with the raw score. It mainly reshuffles the bottom decile.
+
+### Context for Next Session
+Pending items are unchanged from the previous entry: Investment Learnings update, quality/value/profitability controls (need accounting data), and the rank-weighted, avoid-list and zero-shot international tests. If the user wants this plain-English explanation as a durable document, it has to be written to a file, because it currently exists only in chat.
+
+---
+SESSION END: 2026-10-13 19:04 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
