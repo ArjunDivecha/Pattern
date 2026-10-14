@@ -2341,3 +2341,10 @@ Not tested: accounting quality, value, profitability (no fundamentals beyond sha
 Sector is known for only 57% of rows (security-master GICS, current, not point-in-time).
 
 Files: `runs/headline_I20R20_v2_cloud_20261012T034158Z/{decile_profile_20261013T222832Z, neutralize_20261014T001818Z}/`.
+
+**The residual is a pre-2012 effect.** Split by period, the fully neutralised (all controls +
+sector) D10−D1 book earns +8.4%/yr (Sharpe 1.21, t 4.3) over 2000–2011 and −0.6%/yr (Sharpe
+−0.12, t −0.4) over 2012–2026; its rank IC falls from 0.014 (t 6.5) to 0.006 (t 2.8). The raw
+book since 2012 (+5.3%/yr, Sharpe 0.48, t 1.9) is carried by its factor exposures, chiefly in
+2019–2026. On current evidence the CNN's independent information has not been present for
+fourteen years.
