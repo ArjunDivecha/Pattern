@@ -651,3 +651,34 @@ Key findings, all gross, equal-weight market as benchmark:
 ---
 SESSION END: 2026-10-13 15:59 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-13 17:50 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Ran the factor-neutralisation test on the corrected Russell 3000 expanding run, the same check README §L.4/L.5 did on the old R1000 run. The user had asked for it after noting the deciles were highly monotonic. New script `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/neutralize.py` (not yet committed per this log). Sanity check passed: the raw score reproduces the headline Sharpe 0.7161 exactly. Output dir: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/neutralize_20261014T001818Z/` (`neutralize.pdf`, `neutralize.xlsx`, `summary.json`, `characteristics.parquet`). Log: `.../verify_logs/neutralize_20261013.log` (the grep filter swallowed most tables, so they were read from the output files). Appended README §M.2 and a follow-on paragraph on the period split.
+
+### Decisions Made
+- Verdict: mixed. The CNN carries information beyond textbook factors, but most of the clean staircase is known factors, and the unique part stopped working around 2012.
+- As a live signal today, the model is largely a repackaging of small-cap, low-volatility and avoid-junk effects. This should go into the Investment Learnings update, which is still pending.
+
+### Constraints & Gotchas
+- Distress controls are price-based proxies only, because the frozen snapshot (`data/frozen/pattern_daily_v2_20261010/`) has no accounting data.
+- Sector is known for only 57% of rows.
+- Quality, value and profitability controls are untested and could explain more.
+- Removing reversal and momentum improves the book (Sharpe about 0.8), because the CNN leans slightly toward recent winners.
+
+### Context for Next Session
+Findings:
+- Monthly rank IC is 0.12, positive in 58% of 333 months. The 200 placebos came nowhere near the real result.
+- The bottom decile is the most volatile (26% annual vol, against 20.5% for the top and 21.5% for the market). 19% of bottom-decile names trade under $5, against 5% in the top decile.
+- Neutralising volatility, lottery-like jumps, size and liquidity, and the price-based distress proxies cuts the bottom decile's shortfall from 6.3 to under 1 point a year. Each control group alone explains about half of the raw spread.
+- With all controls plus sector, Fama-MacBeth t is 4.6. The neutralised D10−D1 book earns 3.5% a year (Sharpe 0.56, t 2.7), down from 8.9% (Sharpe 0.72) raw. About 40% of the raw return is unexplained by the factors.
+- The residual is a pre-2012 effect. Fully neutralised D10−D1 earns +8.4% a year (Sharpe 1.21, t 4.3) over 2000–2011 and −0.6% a year (Sharpe −0.12, t −0.4) over 2012–2026. The raw book's recent record, mostly from 2019 on, came from factor exposures, chiefly small, volatile, junky stocks that 2021–23 rewarded.
+
+Still to do: update Investment Learnings, test quality, value and profitability controls if accounting data can be obtained, and the earlier-planned rank-weighted, avoid-list and zero-shot international tests.
+
+---
+SESSION END: 2026-10-13 17:50 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
