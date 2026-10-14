@@ -2296,11 +2296,14 @@ survivorship-certified from 2000, simple TRI returns, delisting returns kept, 5 
 annual folds 2000–2026 with a 30% validation window and a 58-session gap. 135 (year, seed)
 units trained on Verda spot A100s in ~26 h for $95 (`research/r3000_headline/cloud_run.py`).
 
-**Result.** The signal is real but about half the old headline, and it lives entirely
+**Result.** The signal is real but about half the old headline, and it lives mostly
 outside the largest 1,000 names. Gross decile long-short, all names, bankrupt at last price:
 +8.9%/yr, Sharpe 0.72, NW t 3.9 over 333 monthly cohorts (old R1000 headline: Sharpe 1.22,
-t 8.0). The large-cap book (top 1,000 by cap, an R1000 proxy) is flat: +0.9%/yr, Sharpe 0.09.
-Small caps carry it: +11.6%/yr, Sharpe 0.89. A $5 traded-price floor costs little
+t 8.0). The large-cap book (top 1,000 by cap, an R1000 proxy) is weak: +3.6%/yr, Sharpe 0.35,
+t 2.0. Small caps carry it: +11.3%/yr, Sharpe 0.86. (Corrected 2026-10-14: report.py v1.0
+multiplied today's-basis share counts by the traded price, inflating every company that later
+split, and showed large caps at +0.9%/yr; see `mcap.py`. The all-names figures do not use caps
+and are unchanged.) A $5 traded-price floor costs little
 (Sharpe 0.67). Most of the spread is the short leg: the bottom decile earns 4.4%/yr
 against 10.7% for the equal-weight benchmark, the top decile 13.3%. The last three years are
 flat and the last twelve months negative (−12%).
@@ -2330,21 +2333,29 @@ vs 2.1% in D10; 19% of names under $5 vs 5%).
 Neutralising the score each cohort date against price-based controls (60-day vol, idiosyncratic
 vol, beta, max daily return, 5d and 1m return, 12-1 momentum, market cap, dollar volume, price
 level, distance from 52-week high, GICS sector) keeps a significant residual: Fama-MacBeth CNN
-coefficient 0.37% per 20 sessions, NW t 4.6, with every control in the regression. The neutralised
-D10−D1 book falls from +8.9%/yr (Sharpe 0.72) to +3.5%/yr (Sharpe 0.56, t 2.7); rank IC t 6.2.
-Volatility, lottery, size/liquidity and the distress proxies each explain roughly half the raw
-spread on their own; reversal and momentum do not (neutralising them raises the Sharpe to ~0.8,
-because the CNN leans slightly toward recent winners). The neutralised profile loses the deep D1
+coefficient 0.43% per 20 sessions, NW t 5.2, with every control in the regression. The neutralised
+D10−D1 book falls from +8.9%/yr (Sharpe 0.72) to +4.3%/yr (Sharpe 0.68, t 3.3); rank IC t 6.7.
+Volatility, lottery and the distress proxies each explain roughly half the raw spread on their
+own; size/liquidity, reversal and momentum do not (neutralising them raises the Sharpe to
+0.8–0.9; the CNN leans slightly toward recent winners). Figures use the corrected market caps
+(`neutralize_20261014T214835Z`); the first run, with the inflated caps, overstated the size effect. The neutralised profile loses the deep D1
 hole (−6.3 → −0.7%) and keeps the top decile (+2.6 → +2.8%): the avoid-the-losers effect is mostly
-known factors; what is left is more symmetric. Large caps show nothing in any specification.
+known factors; what is left is more symmetric.
 Not tested: accounting quality, value, profitability (no fundamentals beyond shares in the snapshot).
 Sector is known for only 57% of rows (security-master GICS, current, not point-in-time).
 
-Files: `runs/headline_I20R20_v2_cloud_20261012T034158Z/{decile_profile_20261013T222832Z, neutralize_20261014T001818Z}/`.
+**Against the Russell 3000** (`cumulative_vs_r3000.py`, same members and cohorts, gross): the
+cap-weighted R3000 compounds at 8.6%/yr from January 2000 ($1 → $8.9, Sharpe 0.58); the CNN top
+decile, long only, at 11.7% ($18.7, Sharpe 0.65); the D10−D1 book at 8.5% with a −22% worst
+drawdown. Over the last five years the cap-weighted index (12.4%/yr) beat the top decile (9.8%).
+
+Files: `runs/headline_I20R20_v2_cloud_20261012T034158Z/{report_20261014T214813Z, decile_profile_20261014T214954Z,
+neutralize_20261014T214835Z, cumulative_20261014T214956Z}/` (corrected caps; the 2026-10-13 report,
+decile-profile and neutralize directories used the inflated caps for their size figures).
 
 **The residual is a pre-2012 effect.** Split by period, the fully neutralised (all controls +
-sector) D10−D1 book earns +8.4%/yr (Sharpe 1.21, t 4.3) over 2000–2011 and −0.6%/yr (Sharpe
-−0.12, t −0.4) over 2012–2026; its rank IC falls from 0.014 (t 6.5) to 0.006 (t 2.8). The raw
+sector) D10−D1 book earns +9.7%/yr (Sharpe 1.34, t 4.7) over 2000–2011 and −0.2%/yr (Sharpe
+−0.03, t −0.1) over 2012–2026. The raw
 book since 2012 (+5.3%/yr, Sharpe 0.48, t 1.9) is carried by its factor exposures, chiefly in
 2019–2026. On current evidence the CNN's independent information has not been present for
 fourteen years.
