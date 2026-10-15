@@ -752,3 +752,56 @@ The pending Investment Learnings update must use these corrected numbers. The ot
 ---
 SESSION END: 2026-10-14 15:21 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-14 19:09 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Two analyses were run on the corrected R3000 CNN scores, using the existing run directory `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/`. Both were committed with README sections.
+
+1. **Sector slice.** The script is `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/sector_slice.py`, README section M.3, commit 799587b. The final output is `sector_slice_20261015T003432Z/`.
+2. **Start-date offsets.** The script is `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/offsets.py` (v1.1), README section M.4, commit 1eed0cb. The final output is `offsets_20261015T011336Z/`, containing `offsets.pdf` and `offsets.xlsx`. The log is `verify_logs/offsets_v1.1.log`.
+
+Both were sent to the user as PDFs.
+
+### Decisions Made
+- Sector classification comes from Bloomberg sector in the Global Data Mart, which covers every name, plus SEC industry codes via the EDGAR link, which cover 93%. The earlier GICS control covered only 57% of names, and 30% in 2000.
+- Staggered-book Sharpe uses monthly returns, not daily. Daily returns are autocorrelated and overstate the Sharpe (1.06 against 0.93).
+
+### Constraints & Gotchas
+- Every Global Data Mart sector source is today's classification applied backward, with no point-in-time history. This is a small look-ahead and is flagged in the outputs.
+- The sector-neutral figures are for the raw signal. The factor-neutralised conclusion was measured on offset 0 only and was not rerun across offsets.
+- The report keeps a final cohort with unknown returns (334 cohorts) and the offsets code drops it (333). Offset 0 reproduces the report exactly on the non-blank cohorts.
+- **First attempt to patch offsets.py failed** because the docstring match did not apply. It silently reran the old daily-scaled version, which produced a wrong Sharpe.
+- **The superseded `offsets_*` and `sector_slice_*` directories are still on disk.** The assistant asked for a yes before deleting them. **No yes has been given, so none were deleted.**
+
+### Context for Next Session
+**Sector result.**
+- Sector-neutral raw signal: long-short 8.3% a year against 8.9%, volatility 12.4% down to 8.9%, Sharpe 0.72 up to 0.94, t-stat 3.9 to 5.2. Industry-level (81 SEC groups) gives the same 0.94.
+- Only 3% of score spread is between sectors. That part has t −0.3, against 4.3 within sector.
+- Sector-neutral large caps (top 1,000): 4.6% a year, Sharpe 0.64, t 3.0, against 0.35 raw. This corrects the earlier "large caps weak" reading.
+- Sector-neutral, 2012–2026 Sharpe goes from 0.48 to 0.87.
+- With price factors and sector both removed, the leftover Sharpe is about 1.1–1.2 over 2000–2011 and about zero since 2012. The independent-information verdict since 2012 stands.
+- Technology is the one sector with residual information after factors: 8.7% a year, t 3.1. Basic Materials and Utilities are flat, with about 90 names each.
+
+**Offset result.**
+- All 20 offsets are significant: Sharpe 0.59 to 0.91, median 0.77, every t above 3.2. The report's offset ranks 13th at 0.72.
+- Staggered book (a tranche started daily, 20 live): 9.8% a year, volatility 10.5%, Sharpe 0.93, t 4.4, worst drawdown 23%.
+- Sector-neutral staggered: Sharpe 1.16.
+- Large caps raw range 0.21–0.69 across offsets, with the report at 0.35. Sector-neutral staggered large caps: Sharpe 0.85, 4.5% a year, 5.3% volatility, 11% drawdown.
+- Staggered Sharpe by period: 1.23 over 2000–2011 and 0.64 since 2012, or 1.45 and 0.92 sector-neutral. The last three years are flat.
+
+**Superseded run directories, awaiting a yes to delete** (all under the run directory above):
+- `offsets_20261015T010531Z` (failed the cohort-count check, partial)
+- `offsets_20261015T010848Z` (daily-scaled Sharpes)
+- `offsets_20261015T011118Z` (duplicate of the daily-scaled run)
+- `sector_slice_20261015T003232Z`
+- `sector_slice_20261015T003322Z`
+- `sector_slice_20261015T003402Z` (superseded by the empty-"Other" heatmap fix). It was not on the list shown to the user.
+
+Pending items from the earlier entries are unchanged, including the Investment Learnings update.
+
+---
+SESSION END: 2026-10-14 19:09 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
