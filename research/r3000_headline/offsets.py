@@ -1,6 +1,6 @@
 """
 Script: offsets.py
-Version: 1.0 (2026-10-14)
+Version: 1.1 (2026-10-14)
 
 Description:
     Start-date robustness for the R3000 headline run (expanding retraining, 2000-2026). The
@@ -21,8 +21,11 @@ Description:
     horizon is held at its last price (cash) for the rest of the tranche, and a name with an unknown
     outcome is dropped, as in Part 1. The book holds the 20 live tranches in equal shares, so its
     daily return is the mean of the 20 tranches' daily returns. D10-D1 is long the top-decile
-    tranches and short the bottom. Daily returns from the total return index; Sharpe annualised
-    with sqrt(252), NW t with 10 lags. Each tranche's 20-day buy-and-hold return is checked against
+    tranches and short the bottom. Daily returns from the total return index. The book's daily
+    returns are positively autocorrelated (lag-1 ~0.1; 20-day variance ratio 1.3-1.8), so a
+    sqrt(252) daily Sharpe overstates it; v1.1 reports statistics on calendar-month compounded
+    returns (Sharpe x sqrt(12), NW t with 3 lags) as the primary measure and keeps the daily
+    Sharpe alongside for reference. Each tranche's 20-day buy-and-hold return is checked against
     the cohort return of Part 1.
 
     Periods: Full, 5y, 3y, 1y (counted back from the last date) and 2000-2011 / 2012-2026. Gross
@@ -43,7 +46,7 @@ Output files (in <run dir>/offsets_<UTC timestamp>/):
     offset_stats.parquet      book x offset x period: D10-D1 stats
     offset_summary.parquet    book x period: min / median / max across the 20 offsets, offset 0's rank
     staggered_daily.parquet   book x date: daily D10, D1, EW and D10-D1 returns of the staggered book
-    staggered_stats.parquet   book x period x leg: annual return, vol, Sharpe, CAGR, max drawdown, NW t
+    staggered_stats.parquet   book x period x leg: monthly-return annual return, vol, Sharpe, NW t; CAGR, max drawdown; daily Sharpe
     offsets.xlsx              the stats tables
     offsets.pdf               charts (light mode)
     summary.json; progress.json (updated per stage)
@@ -113,9 +116,11 @@ def cohort_stats(x):
 def daily_stats(x):
     x = x.dropna()
     w = (1 + x).cumprod()
-    return {'days': len(x), 'ann_return': x.mean() * 252, 'ann_vol': x.std() * np.sqrt(252),
-            'sharpe': x.mean() / x.std() * np.sqrt(252), 'cagr': w.iloc[-1] ** (252 / len(x)) - 1,
-            'max_drawdown': float((w / w.cummax() - 1).min()), 'nw_t': nw_t(x, lags=10)}
+    m = (1 + x).resample('ME').prod() - 1     # calendar-month returns: daily returns are autocorrelated
+    return {'months': len(m), 'ann_return': m.mean() * 12, 'ann_vol': m.std() * np.sqrt(12),
+            'sharpe': m.mean() / m.std() * np.sqrt(12), 'cagr': w.iloc[-1] ** (252 / len(x)) - 1,
+            'max_drawdown': float((w / w.cummax() - 1).min()), 'nw_t': nw_t(m, lags=3),
+            'sharpe_daily_sqrt252': x.mean() / x.std() * np.sqrt(252), 'lag1_autocorr_daily': x.autocorr(1)}
 
 
 def assign_deciles(d, col):
@@ -289,7 +294,7 @@ def main():
         daily[book] = df
         max_check[book] = worst
         log(f'staggered {book}: days {len(df):,}, max |tranche 20d return - cohort mean| {worst:.2e}, '
-            f'LS Sharpe {df.LS.mean() / df.LS.std() * np.sqrt(252):.2f}')
+            f'LS daily-sqrt252 Sharpe {df.LS.mean() / df.LS.std() * np.sqrt(252):.2f} (overstated; see monthly stats)')
         prog[f'staggered_{book}'] = 'done'
         write_json(out / 'progress.json', prog)
     dd = pd.concat({b: v for b, v in daily.items()}, names=['book', 'date']).reset_index()
@@ -317,7 +322,7 @@ def main():
             g = ost[(ost.book == book) & (ost.period == 'Full')].sort_values('offset')
             ax.bar(g.offset, g.sharpe, color=['#c46a00' if k == 0 else '#2f6fb3' for k in g.offset])
             stg = sst[(sst.book == book) & (sst.period == 'Full') & (sst.leg == 'LS')].iloc[0]
-            ax.axhline(stg.sharpe, color='black', lw=1.2, ls='--', label=f'staggered book (daily): {stg.sharpe:.2f}')
+            ax.axhline(stg.sharpe, color='black', lw=1.2, ls='--', label=f'staggered book (monthly returns): {stg.sharpe:.2f}')
             ax.set_title(f'{book}: D10-D1 Sharpe by start offset, 2000-2026', fontsize=8.5)
             ax.legend(fontsize=7, loc='lower right')
             ax.set_xticks(range(0, 20, 2))

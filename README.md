@@ -2397,3 +2397,34 @@ The GICS control in M.2 covered 57% of rows (30% in 2000).
 
 Files: `runs/headline_I20R20_v2_cloud_20261012T034158Z/sector_slice_20261015T003432Z/`
 (`sector_slice.pdf`, `sector_slice.xlsx`); log `verify_logs/sector_slice_v1.1.log`.
+
+### M.4  Start-date robustness: the 20 offsets and the staggered book (`offsets.py`, 2026-10-14)
+
+Every headline number so far uses one of 20 possible start days (portfolios formed every 20th
+session from the first test session). All 20 have now been run, and so has the staggered book
+that does not depend on the start: a new tranche every session, each held 20 sessions buy and
+hold, 20 tranches live in equal shares.
+
+**The report's start day was slightly unlucky, and the staggered book is better than any single
+start.** For all names, raw, the 20 offsets give D10−D1 Sharpes from 0.59 to 0.91 (median 0.77);
+the report's offset 0 ranks 13th at 0.72. Every offset has NW t above 3.2. The staggered book
+earns +9.8%/yr at 10.5% vol, Sharpe 0.93 on monthly returns (t 4.4), max drawdown −23%: the same
+return as the average offset at lower volatility, because tranches formed on different days
+diversify each other's timing noise. Sector-neutral, the staggered book reaches Sharpe 1.16 (t 5.5,
+vol 7.1%); small caps sector-neutral 1.43; large caps sector-neutral 0.85 (t 4.2, +4.5%/yr at
+5.3% vol, max drawdown −11%). The large-cap raw book is the one most sensitive to the start day
+(offsets 0.21 to 0.69; offset 0 is near the bottom at 0.35); the staggered large-cap raw book is 0.57.
+
+Measurement note: the staggered book's daily returns are positively autocorrelated (lag-1 ≈ 0.1,
+20-day variance ratio 1.3–1.8), so a √252 daily Sharpe overstates it (all names raw: 1.06 daily
+vs 0.93 monthly). All staggered figures above use calendar-month returns.
+
+By period the picture is unchanged: staggered all-names raw Sharpe 1.23 over 2000–2011 and 0.64
+over 2012–2026 (sector-neutral 1.45 and 0.92); the last three years are flat and the last year
+negative except in large caps. Offset 0 reproduces report.py's cohort returns to 1e-17 for all
+names, large and small caps, and each tranche's 20-day buy-and-hold return reproduces its cohort
+return to 1e-14. None of this touches the factor-neutralised conclusion (M.2, M.3), which was
+measured on offset 0 only.
+
+Files: `runs/headline_I20R20_v2_cloud_20261012T034158Z/offsets_20261015T011336Z/` (`offsets.pdf`,
+`offsets.xlsx`); log `verify_logs/offsets_v1.1.log`.
