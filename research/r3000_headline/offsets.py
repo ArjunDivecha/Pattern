@@ -199,8 +199,8 @@ def main():
     r = pd.read_parquet(rep / 'cohort_returns.parquet')
     for book, variant in [('all names, raw', 'all, bankrupt at last price'), ('large caps, raw', 'large caps (top 1000, R1000 proxy)'),
                           ('small caps, raw', 'small caps (rest, R2000 proxy)')]:
-        mine = coh[(coh.book == book) & (coh.offset == 0)].set_index('date').LS
-        theirs = r[r.variant == variant].set_index('date').long_short
+        mine = coh[(coh.book == book) & (coh.offset == 0)].set_index('date').LS.dropna()
+        theirs = r[r.variant == variant].set_index('date').long_short.dropna()   # report keeps one final all-unknown cohort as blank
         diff = (mine - theirs.reindex(mine.index)).abs().max()
         log(f'offset 0 vs report, {book}: max |diff| {diff:.2e}, cohorts {len(mine)} vs {len(theirs)}')
         assert diff < 1e-12 and len(mine) == len(theirs), book
