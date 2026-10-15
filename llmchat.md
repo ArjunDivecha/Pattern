@@ -707,3 +707,48 @@ Pending items are unchanged from the previous entry: Investment Learnings update
 ---
 SESSION END: 2026-10-13 19:04 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-14 15:21 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+The user asked for the strategy's cumulative return against the Russell 3000. The assistant wrote `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/cumulative_vs_r3000.py`. It plots the CNN top decile, long only, against the cap-weighted and equal-weighted Russell 3000. All series are gross, use the same point-in-time members and hold monthly. Building the chart exposed a market-cap bug. It was fixed and the dependent analyses were rerun. `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/README.md` was updated with the corrected result.
+
+Results, since January 2000:
+- The top decile turned $1 into $18.70. The cap-weighted Russell 3000 turned $1 into $8.90, a 8.6% a year, so the top decile compounded about 3 points a year faster.
+- The top three deciles did about as well as the top decile alone. The market minus the bottom decile grew to $11.
+- Over the last five years the cap-weighted index made 12.4% a year against 9.8% for the top decile, because of giant tech.
+- The long-short book compounded at 8.5% a year with a 22% worst drawdown, against 48% for the index. It is in a 22% drawdown now, after the past year's junk rally.
+
+### Decisions Made
+- Market cap is now split-adjusted shares times traded close, via the new `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/mcap.py`. `report.py` was patched to use it.
+- The earlier report, neutralisation and decile profile were rerun on the fix.
+
+### Architecture / Design
+Run directory: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/`. Corrected outputs, all inside it:
+- `report_20261014T214813Z/report.html`
+- `neutralize_20261014T214835Z/neutralize.xlsx`
+- `decile_profile_20261014T214954Z/decile_profile.pdf`
+- `cumulative_20261014T214956Z/cumulative_vs_r3000.pdf` and `stats.xlsx`
+
+### Constraints & Gotchas
+- **Bug:** market caps were wrong for any company that later split its stock. Apple showed $2 trillion in January 2000 instead of about $18 billion. The phantom giants made the cap-weighted index look like 14.5% a year. The same caps drove the large/small split in the report and the size control in the neutralisation.
+- **Superseded:** the large-cap/small-cap numbers in `report_*` and in `neutralize_20261014T001818Z/` (the 3.5% a year, Sharpe 0.56 and 40%-unexplained figures from the previous entry) are wrong. The all-names headline did not use market caps and is unchanged.
+- **Script failure:** the rerun script took the newest `report_*` match, which was the log `report_v1.1.log`, not the new report folder. Two empty directories, `decile_profile_20261014T214922Z` and `cumulative_20261014T214923Z`, were removed. The log was moved to `runs/.../verify_logs/report_v1.1.log`, and the steps were rerun against `report_20261014T214813Z`. Avoid `ls -d report_*` globs while logs share the prefix.
+
+### Open Questions
+- The corrected 2012–2026 neutralised figure was not quoted, only "nothing since 2012".
+- Other projects that build market caps from shares times close may have the same split bug. This was not checked.
+
+### Context for Next Session
+Corrected findings supersede the previous entry:
+- The large-cap long-short earns 3.6% a year at Sharpe 0.35 and t 2.0. It was reported as 0.9%. It is weak but not zero.
+- After removing every factor, the neutralised book earns 4.3% a year at Sharpe 0.68. That is about half the raw return, not 40%. Size is not one of the factors the CNN was piggybacking on.
+- The neutralised book earned 9.7% a year at Sharpe 1.34 over 2000–2011, and nothing since 2012.
+
+The pending Investment Learnings update must use these corrected numbers. The other pending items are unchanged.
+
+---
+SESSION END: 2026-10-14 15:21 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
