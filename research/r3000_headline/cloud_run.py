@@ -1,6 +1,6 @@
 """
 Script: cloud_run.py
-Version: 1.1 (2026-10-12)
+Version: 1.2 (2026-10-15)
 
 Description:
     Runs the R3000 headline expanding-window training (train.py, unchanged) on rented
@@ -27,10 +27,19 @@ Description:
       resume    restart the dispatcher with the saved settings (e.g. after the Mac
                 restarts); running units on the machines are untouched.
       status    print the heartbeat.
-      teardown  delete this run's machines and their disks, only those it created.
+      teardown  delete this run's machines and their disks, only those it created, then
+                sweep and verify that no disk of this run is left (see v1.2 below).
       assemble  write ensembles for complete years and run report.py.
       localtest end-to-end test on this Mac's CPU with two fake local machines, smoke-
                 sized units, a simulated machine loss, and a resume-from-checkpoint check.
+
+    v1.2: deleting a machine does not reliably delete its disk. In the 2026-10-12 run, all 14
+    machines deleted after a failed setup or a spot reclaim kept their 100 GB OS disk (billed
+    $20/month each) although Verda accepted every delete call; only machines deleted while
+    running lost theirs. The dispatcher now deletes each recorded disk itself once its
+    machine is gone (every 5 minutes while running, and at the end), then re-lists Verda's
+    volumes until none of this run's disks remain, and logs DISK CLEANUP FAILED otherwise.
+    It only ever touches disks whose id it recorded for a machine it created.
 
     Machines are deleted automatically only if --auto-delete was given (Arjun's
     authorisation; Verda reuses IPs, so deletion needs his explicit say-so). Without it,
@@ -200,6 +209,12 @@ class Verda:
         return self._call('PUT', '/instances', {'id': iid, 'action': 'delete', 'volume_ids': volume_ids,
                                                 'delete_permanently': True})
 
+    def volumes(self):
+        return self._call('GET', '/volumes') or []
+
+    def delete_volumes(self, ids):
+        return self._call('PUT', '/volumes', {'id': list(ids), 'action': 'delete', 'is_permanent': True})
+
 
 # ----------------------------------------------------------------------------- run setup
 def code_and_data_files(home):
@@ -264,6 +279,7 @@ class Dispatcher:
         self.hosts = read_json(self.cloud / 'hosts.json', [])
         self.units = read_json(self.cloud / 'units.json')
         self.verda = Verda() if settings['transport'] == 'ssh' else None
+        self.last_sweep = 0.0
         self.manifest = read_json(self.cloud / 'upload_manifest.json')
         self.files = list(self.manifest['files'])
         self.last_fill = 0
@@ -556,9 +572,39 @@ class Dispatcher:
             vols = [info['os_volume_id']] if info.get('os_volume_id') else []
             self.verda.delete(h['instance_id'], vols)
             self.set_state(h, 'deleted', ended=h.get('ended') or now(), deleted_why=why)
-            self.log(f"deleted {h['name']} and its disk ({why})")
+            self.log(f"deleted {h['name']} ({why}); its disk is removed and verified by the disk sweep")
         except Exception as e:  # noqa: BLE001
             self.log(f"delete of {h['name']} FAILED: {e}")
+
+    def sweep_disks(self, final=False, wait_s=900):
+        """Delete the recorded OS disk of every machine of this run that is deleted; with final=True,
+        keep re-listing until none of this run's disks remain. Returns the names still present."""
+        if self.s['transport'] != 'ssh' or not self.s['auto_delete']:
+            return []
+        ours = {h['os_volume_id']: h['name'] for h in self.hosts if h.get('os_volume_id')}
+        t0 = now()
+        while True:
+            try:
+                vols = [v for v in self.verda.volumes() if v['id'] in ours]
+            except Exception as e:  # noqa: BLE001
+                self.log(f'disk sweep: listing volumes failed: {e}')
+                vols = None
+            if vols is not None:
+                gone_hosts = {h['name'] for h in self.hosts if h['state'] == 'deleted'}
+                free = [v for v in vols if ours[v['id']] in gone_hosts and not v.get('instance_id')]
+                if free:
+                    try:
+                        self.verda.delete_volumes([v['id'] for v in free])
+                        self.log(f"disk sweep: deleted {len(free)} leftover disk(s): {sorted(v['name'] for v in free)}")
+                    except Exception as e:  # noqa: BLE001
+                        self.log(f'disk sweep: delete failed: {e}')
+                if not final or not vols:
+                    return []
+            if now() - t0 > wait_s:
+                left = sorted(v['name'] for v in (vols or []))
+                self.log(f'DISK CLEANUP FAILED: still present after {wait_s}s: {left}')
+                return left
+            time.sleep(30)
 
     # --- units
     def running_on(self, h):
@@ -777,6 +823,9 @@ class Dispatcher:
                 chaos(self)
             self.dispatch()
             self.retire_idle()
+            if now() - self.last_sweep >= 300:
+                self.last_sweep = now()
+                self.sweep_disks()
             if self.spent() >= self.s['budget_usd'] and self.state == 'running':
                 self.state = 'budget_exhausted'
                 self.log(f'BUDGET REACHED (${self.spent():.2f}); no new units will start')
@@ -880,6 +929,9 @@ def finish(home, d):
     left = [h['name'] for h in d.hosts if h['state'] in LIVE + ('idle',)]
     if left:
         d.log(f'machines still rented (no --auto-delete): {left}; run teardown --confirm-delete when Arjun agrees')
+    elif d.s['auto_delete']:
+        disks = d.sweep_disks(final=True)
+        d.log('disk sweep: no disks of this run remain' if not disks else f'DISKS STILL BILLING: {disks}')
 
 
 def cmd_status(a):
@@ -897,6 +949,10 @@ def cmd_teardown(a):
     for h in d.hosts:
         if h['state'] not in ('deleted',):
             d.delete_host(h, 'teardown')
+    disks = d.sweep_disks(final=True)
+    d.log('teardown: no disks of this run remain' if not disks else f'teardown: DISKS STILL BILLING: {disks}')
+    if disks:
+        sys.exit(f'disks still present: {disks}')
 
 
 def cmd_localtest(a):
