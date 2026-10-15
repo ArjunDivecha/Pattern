@@ -2359,3 +2359,41 @@ sector) D10−D1 book earns +9.7%/yr (Sharpe 1.34, t 4.7) over 2000–2011 and �
 book since 2012 (+5.3%/yr, Sharpe 0.48, t 1.9) is carried by its factor exposures, chiefly in
 2019–2026. On current evidence the CNN's independent information has not been present for
 fourteen years.
+
+### M.3  Sector and industry slicing (`sector_slice.py`, 2026-10-14)
+
+**Sector neutralising makes the raw signal better, not worse.** Subtracting each stock's sector
+mean score before forming deciles leaves the D10−D1 return almost unchanged (+8.3%/yr vs +8.9%)
+but cuts its volatility from 12.4% to 8.9%, so the Sharpe rises from 0.72 to 0.94 (NW t 3.9 →
+5.2). Industry neutralising (SIC 2-digit, 81 groups) gives the same 0.94; forming deciles inside
+each sector and pooling gives 0.81. The CNN's sector tilts are pure noise: only 3% of the score's
+cross-sectional variance is between sectors, the between-sector component has no Fama-MacBeth
+return (t −0.3, against t 4.3 for the within-sector part), and a book long the three sectors
+with the highest mean score and short the lowest three earns Sharpe 0.09. The largest standing
+tilt is against Bloomberg's Consumer Non-cyclical sector (which holds healthcare and biotech:
+29% of D1 vs 22% of the universe, −15 to −25 points a year since 2016), and toward Financials.
+
+Sector neutrality changes two earlier conclusions about the raw book:
+- **Post-2012 is not dead before factor controls.** 2012–2026 Sharpe rises from 0.48 (t 1.9)
+  to 0.87 (t 3.6) sector-demeaned. 
+- **Large caps work.** Inside the top 1000, sector-demeaned Sharpe 0.64 (t 3.0, +4.6%/yr) vs
+  0.35 raw; 2012–2026 0.59 vs 0.24. Small caps are unchanged (0.86 → 0.87).
+
+It does not change the independent-information conclusion. With all price controls plus sector
+(or industry) dummies the residual book earns Sharpe 0.60–0.67 over the full period, 1.1–1.2
+over 2000–2011 and ≈0 over 2012–2026 (t 0.2–0.4). So since 2012 the CNN is a sector-neutral
+blend of known price factors (low vol, anti-lottery, anti-distress), cleaner than its raw form,
+but not new information. (The residual's last-12-months Sharpe of 1.8–3.4 is 13 cohorts; noise.)
+
+By sector (deciles formed inside the sector, raw score), the book works in every sector with
+enough names: t ≥ 2 in Financials, Industrials, Consumer Non-cyclical, Energy, Technology and
+Communications; Consumer Cyclical t 1.9; the two smallest sectors (Basic Materials, Utilities,
+~90 names) are flat. Technology is the one sector where the all-controls residual holds up
+(+8.7%/yr, t 3.1, positive since 2012); Communications and Energy are almost all factor exposure.
+
+Classification caveat: Bloomberg INDUSTRY_SECTOR (100% of rows) and SEC SIC codes via the
+verified EDGAR CIK map (93%) are both today's classification applied backwards, not point-in-time.
+The GICS control in M.2 covered 57% of rows (30% in 2000).
+
+Files: `runs/headline_I20R20_v2_cloud_20261012T034158Z/sector_slice_20261015T003432Z/`
+(`sector_slice.pdf`, `sector_slice.xlsx`); log `verify_logs/sector_slice_v1.1.log`.
