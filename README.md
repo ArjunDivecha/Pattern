@@ -2428,3 +2428,29 @@ measured on offset 0 only.
 
 Files: `runs/headline_I20R20_v2_cloud_20261012T034158Z/offsets_20261015T011336Z/` (`offsets.pdf`,
 `offsets.xlsx`); log `verify_logs/offsets_v1.1.log`.
+
+### M.5  Full-database scores published to the Global Data Mart (`score_all_db.py`, 2026-10-16)
+
+Every stock-day in the frozen v2 database that can be charted now has an out-of-sample CNN score. That
+covers 2000-01-03 to 2026-06-30: 25,458,498 rows over 9,453 names, about 3,800 a day. The scores are
+published to the Data Mart's stock-alpha library as the daily factor `pattern_cnn`
+(`gdm.alphas.load("pattern_cnn")`, SQL view `alphas.daily`).
+
+The headline run scored only days when a name was a Russell 3000 member. Those 19.55 million rows are
+reused unchanged. The other 5.90 million are days before a name joined the index or after it left. They
+were scored on the Mac with that year's own five models, using the same chart rule as `prepare.py`
+without the membership test. 1996–1999 are not scored, because no fold had been fitted before them.
+
+Each year, 20,000 member rows were re-scored locally and compared with the cloud scores. The five-model
+mean agreed within 5e-5 and the ranks correlated at 0.9999998. Single seeds differed by up to 1.6e-4,
+because the A100s ran convolutions at PyTorch's default TF32 precision. That broke the first gate, 1e-4
+per seed. The gate became seed 5e-4, mean 1e-4 and rank correlation 0.99999, which still catches any real
+fault.
+
+Non-member days were never in training or testing, so their value as a signal is untested. Filter on
+point-in-time membership for Russell 3000 work. Publisher:
+`Global Data Mart/sources/alphas/ingest/publish_pattern_cnn.py`.
+
+Files: `runs/headline_I20R20_v2_cloud_20261012T034158Z/full_db_scores_20261017T034904Z/` (`Y<year>.parquet`
+with per-seed scores and a member flag, `verification.json`, `summary.json`, `score_all_db.log`). The
+earlier `full_db_scores_20261017T034601Z` is the run that stopped on the original gate.
