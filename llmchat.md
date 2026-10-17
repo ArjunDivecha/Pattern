@@ -876,3 +876,47 @@ Sector data sources found in the Global Data Mart (`/Users/arjundivecha/Dropbox/
 ---
 SESSION END: 2026-10-15 15:22 PDT | Agent: Claude Code (auto, sessionend, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-16 21:19 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+The user asked to save the stock-level predicted alphas from every trained model to the Global Data Mart (GDM), covering the whole database and time period. Work done so far:
+- Surveyed GDM's stock-alpha library (`gdm/alphas.py`, `sources/alphas/`, `sources/forecasts/`).
+- Wrote a local scorer and a GDM publisher.
+- Registered a daily tier in GDM.
+- Launched the full-database scoring run. It covers about 25M stock-days, roughly 6M of them new, and should take about an hour on the Mac GPU (MPS).
+- Nothing has been published to GDM yet.
+
+### Decisions Made
+- Alphas go into GDM's stock-alpha library (`sources/alphas/`), as a new daily tier. The existing quality ingest `publish_quality.py` was the template.
+- Scoring is done locally on MPS, reusing the cloud run's models, the same renderer and the per-seed training normalization. The cloud run only produced predictions for its own folds.
+- The publisher refuses to write unless all 27 years were scored and every re-score check against the cloud predictions passed.
+
+### Architecture / Design
+- Scorer: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/score_all_db.py`. Output goes to `<cloud run dir>/full_db_scores_<UTC timestamp>/`. The cloud run dir is `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/`.
+- Publisher: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Global Data Mart/sources/alphas/ingest/publish_pattern_cnn.py`.
+- Registry entry added in `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Global Data Mart/gdm/registry.py`.
+
+### What To Build Next
+- When the run finishes, run the publisher, then verify through the `gdm` interface.
+- Fill in `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Global Data Mart/sources/alphas/README.md` with real coverage numbers and document the factor in `factors.json`.
+- Commit the GDM code only, not the data.
+
+### Constraints & Gotchas
+- **Smoke-test failure:** the first 50 names had no member days in 2015, so there was nothing to check against. The scorer now refuses a year with no member rows. A 400-name retry was run, but its result is not in this activity.
+- **Cloud and local scores differ slightly.** No precision setting was made on the cloud, so the A100 ran convolutions at PyTorch's default reduced TF32 precision. The gap to local MPS was measured against the score's own spread with a diagnostic at `/private/tmp/claude-501/-Users-arjundivecha-Dropbox-AAA-Backup-A-Working-Pattern/cedcfbeb-8623-4981-801e-b50f89d6a359/scratchpad/diag_tol.py` (scratch, not durable). `score_all_db.py` was patched afterwards, and its docstring now describes the check. The exact tolerance chosen is not recorded here, so read it from the file.
+- The full run was launched twice, once before and once after the patch. The first run's `full_db_scores_*` directory (task `b87r6cq5k`) is superseded. Confirm no leftover process is still scoring.
+
+### Open Questions
+- Does the post-patch tolerance still pass for all 27 years?
+- The sector-neutral caveat from earlier does not apply to this task.
+
+### Context for Next Session
+- Progress log of the live run: `/private/tmp/claude-501/-Users-arjundivecha-Dropbox-AAA-Backup-A-Working-Pattern/cedcfbeb-8623-4981-801e-b50f89d6a359/tasks/bxf4nrnwt.output`.
+- The final report to the user should lead with the result: rows and years published, and whether the re-score checks passed.
+
+---
+SESSION END: 2026-10-16 21:19 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
