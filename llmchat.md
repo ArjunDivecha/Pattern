@@ -805,3 +805,74 @@ Pending items from the earlier entries are unchanged, including the Investment L
 ---
 SESSION END: 2026-10-14 19:09 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-15 13:34 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Verda Cloud emailed that detached OS block volumes (`pr3k-034158-01` to `-06`, $20/month each) had sat unattached for 3 days, and the user blamed the assistant for not tearing them down. Listing the account showed 14 orphaned 100 GB disks, not 6. All belonged to cloud run `headline_I20R20_v2_cloud_20261012T034158Z` (`pr3k-034158-01` to `-15`, no `-14`). All were detached, at about $0.38/h combined, and no instances were running. All 14 were permanently deleted, and a re-list confirmed the account has zero volumes and zero instances. They billed for about 2.5 days, roughly $25 on top of the run's $95.
+
+### Decisions Made
+- `cloud_run.py` now deletes each machine's OS disk itself after the machine is gone, rather than trusting instance deletion to cascade.
+- The orchestrator verifies teardown by re-listing Verda disks, and it logs a cleanup failure if any run disk survives.
+- It only touches disks it created, identified by the run prefix.
+- A standing rule was saved to memory: every cloud run ends with an explicit check of both machines and disks, and the completion report states it.
+
+### Architecture / Design
+- `cloud_run.py` v1.2 (commit 66e3961) sweeps for leftover run disks every 5 minutes during a run, then once more at the end. It then loops on `GET /volumes` until none from the run remain.
+- A disk is only deleted when it is detached and carries the run prefix.
+
+### Constraints & Gotchas
+- **Root cause:** machines reclaimed by the spot market, or that failed setup, kept their boot disk after deletion. The four machines deleted while still running did not leave disks. Verda accepted every delete request without error. The old code wrote "deleted … and its disk" without verifying, so the log line was false.
+- Verda's own email under-reported the problem (6 listed, 14 real).
+- Verda API: `Verda()._call('GET','/volumes')` returns volumes with `id`, `name`, `status` and `instance_id`.
+- One unrelated disk, `OS-NVMe-FCHM6bz5`, sits in Verda's trash from another project. It was not touched.
+
+### Context for Next Session
+- Tested against a fake Verda with four cases: leftover disk, disk attached to a live machine, another project's disk, and a disk that fails to delete. The real teardown against this run also passed.
+- Files:
+  - `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/cloud_run.py` (v1.2)
+  - `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/cloud/dispatch.log` (teardown check)
+  - `/Users/arjundivecha/.claude/projects/-Users-arjundivecha-Dropbox-AAA-Backup-A-Working-Pattern/memory/verify-cloud-teardown.md`
+- The superseded `offsets_*` and `sector_slice_*` directories from the earlier entry are still on disk. No yes to delete them has been given.
+
+---
+SESSION END: 2026-10-15 13:34 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+---
+SESSION START: 2026-10-15 15:22 PDT | Agent: Claude Code (auto, sessionend, session cedcfbeb)
+---
+
+### Session Summary
+This was a context-continuation stretch. It recapped the sector slice, the 20-offset test and the Verda disk cleanup, and recorded where the sector data comes from. The user's last message was "Moron. You forgot to kill these", about the orphaned Verda volumes. The cleanup and the orchestrator fix are already logged. The orphans cost 922 disk-hours, about $25.25 in total.
+
+### Decisions Made
+- The user's explicit demand to kill the disks is what authorised the permanent volume deletions. The earlier `--auto-delete` authorisation covered machines. The standing Verda rule is still "never delete an instance without Arjun's explicit confirmation — Verda reuses IPs".
+
+### Architecture / Design
+Sector data sources found in the Global Data Mart (`/Users/arjundivecha/Dropbox/AAA Backup/A Working/Global Data Mart/`):
+- **GICS:** `sources/equities/data/ref_fields/security_reference.parquet`. It covers 57% of rows overall and only 30% in 2000, because dead names are missing.
+- **Bloomberg INDUSTRY_SECTOR:** same file, covers about 100% of rows. It is the fallback for names without GICS.
+- **SIC codes:** `sources/edgar/data/security_cik_map.parquet` (verified CIK) joined to `entities.parquet` (`sic`). It covers 93% of rows.
+- `vintages/2026-06-30/security_master.parquet` holds the same GICS fields, flagged `metadata_is_point_in_time=False`.
+
+### Constraints & Gotchas
+- **No point-in-time sector exists anywhere in the Global Data Mart.** Today's classification is applied backwards, and the sector-neutral results carry that flag.
+- SIC never varies over time per CIK, so it is current-only. Any 2000-era sector-neutral result leans on current labels, and GICS is thinnest in exactly the early years.
+- The staggered result (Sharpe 1.23 over 2000–2011 and 0.64 since 2012) should be read with that caveat.
+
+### Open Questions
+- The superseded `offsets_*` and `sector_slice_*` run directories still await a yes to delete. The list shown to the user omitted `sector_slice_20261015T003402Z`. Tell them when asking again.
+- The Investment Learnings update and the fork-gate verdict are still pending.
+- The international-transfer discussion has not started. NKY is a sealed lockbox.
+
+### Context for Next Session
+- **The final reply to the user about the disk cleanup has not been written.** It should lead with the result: 14 orphaned volumes deleted, zero volumes and zero instances now, about $25.25 of wasted disk cost. Then it should state the root cause (reclaimed spot machines and failed setups kept their boot disks, and the old log line "deleted … and its disk" was false). Then the fix: `cloud_run.py` v1.2, commit 66e3961, tested against a fake Verda and a real teardown. Do not be defensive. The user's anger is justified by the false log line.
+- Cloud run: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/`
+- Standing memory rule: `/Users/arjundivecha/.claude/projects/-Users-arjundivecha-Dropbox-AAA-Backup-A-Working-Pattern/memory/verify-cloud-teardown.md`. Every cloud run ends with an explicit check of machines and disks, stated in the completion report.
+
+---
+SESSION END: 2026-10-15 15:22 PDT | Agent: Claude Code (auto, sessionend, session cedcfbeb)
+---
