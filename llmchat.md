@@ -952,3 +952,32 @@ Published the full-database CNN scores to the Global Data Mart (GDM) as daily fa
 ---
 SESSION END: 2026-10-16 22:07 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-17 22:13 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Committed and pushed both repos at the user's request ("comitt and push"). Both now match GitHub, so the earlier note that they were committed but not pushed is superseded.
+
+### Decisions Made
+- Pattern's local `master` had diverged from `origin/master`: 54 local commits against 4 remote ones. The remote commits were August OpenWiki doc-bot doc updates plus removal of that bot's workflow. They were merged in, not overwritten.
+
+### Architecture / Design
+- Pattern (`/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern`) is pushed at `de1ea80`. The merge was clean and there were no conflicts. `llmchat.md` was committed first.
+- Before the push, the diff against `origin/master` was checked for data and secret files (parquet, xlsx, pdf, pt, npy, npz, bin, csv, `.env`, key). None were found. The push carried 156 changed files.
+- Global Data Mart (`/Users/arjundivecha/Dropbox/AAA Backup/A Working/Global Data Mart`) needed nothing. It was already pushed and clean, because another session pushed it after commit `6728f99`.
+
+### Constraints & Gotchas
+- Pattern's remote branch is `master`, not `main`.
+- The OpenWiki doc-bot workflow no longer exists on the remote, so it will not generate doc commits against the repo.
+
+### Open Questions
+- Still unanswered and not raised in this session: whether to delete the stopped first scoring attempt `full_db_scores_20261017T034601Z` and the superseded run from task `b87r6cq5k`.
+
+### Context for Next Session
+- Nothing is pending on the git side. The Pattern and GDM working trees were clean after the push.
+
+---
+SESSION END: 2026-10-17 22:13 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
