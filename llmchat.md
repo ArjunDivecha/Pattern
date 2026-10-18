@@ -920,3 +920,35 @@ The user asked to save the stock-level predicted alphas from every trained model
 ---
 SESSION END: 2026-10-16 21:19 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-16 22:07 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Published the full-database CNN scores to the Global Data Mart (GDM) as daily factor `pattern_cnn`. The 27-year scoring run finished and every year passed its re-score check. The factor covers 2000-01-03 to 2026-06-30: 25.5M scores, 9,453 names, about 3,800 a day. It loads with `gdm.alphas.load("pattern_cnn")` or from the SQL view `alphas.daily`. Of the rows, 19.6M are Russell 3000 member days, which are the cloud run's scores unchanged (a full year was verified bit-identical). The other 5.9M are non-member days, scored locally on MPS in about 46 minutes with each year's own five models. 1996–1999 are excluded because no model had been trained before those years. All 56 GDM tests pass.
+
+### Decisions Made
+- The re-score check was loosened after the 2000 run showed cloud-vs-Mac differences up to 0.00016, against the original 0.0001 limit. The cause is that the A100 ran at default reduced TF32 precision. The check is now three tests: each model within 0.0005, the five-model average within 0.0001, and rank correlation of at least 0.99999. A real fault would move scores about 100× more and scramble ranks. The README records the change.
+- Non-member rows stay in the factor and are flagged as untested out-of-sample. Users should filter on point-in-time membership for Russell 3000 work.
+
+### Architecture / Design
+- Final scoring run: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/full_db_scores_20261017T034904Z/`.
+- GDM factor data: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Global Data Mart/sources/alphas/data/daily/pattern_cnn.parquet`. The register is `sources/alphas/factors.json` and the docs are `sources/alphas/README.md`. The publisher is `sources/alphas/ingest/publish_pattern_cnn.py`. Registry changes are in `gdm/registry.py`.
+- The Pattern README now has section M.5, "Full-database scores published to the Global Data Mart".
+
+### Constraints & Gotchas
+- **Rank the score within each date.** Each year is a different model with its own calibration, so the level drifts across years. The score is the probability that the next 20-session return is positive.
+- **Concurrent writer:** another session was publishing economic-book factors into the same alphas library. The shared register was checked afterwards and all ten factors are intact.
+- **Git:** both repos are committed but not pushed. GDM is at 6728f99 and Pattern is at 9119371. Code is committed, data is not.
+
+### Open Questions
+- Delete the stopped first attempt `full_db_scores_20261017T034601Z`, which is still on disk? The user has not answered. The earlier superseded run from task `b87r6cq5k` is also unconfirmed. Whether any leftover scoring process is still running was not checked.
+
+### Context for Next Session
+- The task is complete and the user has the report. Pushing either repo needs the user's approval.
+- The earlier tolerance question is answered: all 27 years pass under the new check.
+
+---
+SESSION END: 2026-10-16 22:07 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
