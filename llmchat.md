@@ -981,3 +981,42 @@ Committed and pushed both repos at the user's request ("comitt and push"). Both 
 ---
 SESSION END: 2026-10-17 22:13 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-17 23:45 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+The user asked for a brief, shareable description of the R3000 CNN strategy with its best results and charts, to post in a WhatsApp group. I built a single phone-friendly HTML page and published it as a private Artifact: https://claude.ai/artifact/FcNeyh3FnbzApNxhu6aXjL. I also drafted a short paste-in message for the group. The page was previewed in a browser. All sections rendered, both images loaded, and nothing overflowed sideways at phone width.
+
+### Decisions Made
+- Format: a published Artifact link rather than a local file, because WhatsApp readers need a URL.
+- The page is in the user's required light mode.
+- Two wording fixes before publishing: "top 99.8th percentile" became "99.8th percentile", and the bottom-picks claim was backed with a real number. The chart axis floor was also fixed.
+
+### Architecture / Design
+- Builder: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/share_page.py`. Template: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/share_page_template.html`. Together they rebuild the page from the headline run's result folders.
+- Output run directory: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/share_page_20261018T061510Z/`.
+  - The page is `pattern_cnn_share.html`.
+  - Every number on it is in `share_data.json`.
+- The page uses these numbers from the existing headline results:
+  - Long-short: 9.8% a year, Sharpe 0.93 (1.16 sector-neutral), volatility 10.5%, positive in 21 of 27 years.
+  - Growth of $1: top picks reach $24.7, the average stock $9.1.
+  - Two real input charts drawn with the training renderer: Apple on 2025-05-12 at the 99.8th percentile (buy side), and Apple on 2025-12-23 at the 6.8th (sell side).
+  - Charts of return by score decile, long-short return by calendar year, and Sharpe by size slice (plain and sector-neutral).
+
+### Constraints & Gotchas
+- The artifact is private. The user must share it from the page's Share menu before the group can open it.
+- Disclosures on the page: returns are before trading costs. The edge has faded since 2012 and was flat over the last three years. Much of it overlaps known price effects. It works mostly in small caps.
+- Git: the builder and template are committed in Pattern as `3898004` and not pushed. Pushing needs the user's approval. The generated page and `share_data.json` are data and are not committed.
+
+### Open Questions
+- Still unanswered from earlier: whether to delete the stopped first scoring attempt `full_db_scores_20261017T034601Z` and the superseded run from task `b87r6cq5k`.
+
+### Context for Next Session
+- The task is complete. The user has the link and the draft group message.
+- If the user wants edits, change the template or `share_page.py` and rerun it. Republish the same file path to keep the same URL.
+
+---
+SESSION END: 2026-10-17 23:45 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
