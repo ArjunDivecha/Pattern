@@ -1,0 +1,203 @@
+<title>Pattern Chart Reader</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* Layout: one narrow reading column, like a trading notebook page; numbers in mono, charts full column width. Light only, by the owner's standing rule. */
+:root {
+  --paper: #fbfcfb;
+  --ink: #15211d;
+  --muted: #5b6b65;
+  --rule: #dfe6e2;
+  --long: #0f7a58;
+  --short: #b8432f;
+  --market: #8a97a8;
+  --tint: #eef4f1;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+html, body { background: var(--paper); color: var(--ink); }
+body { font-family: var(--body); font-size: 16px; line-height: 1.55; }
+.wrap { max-width: 760px; margin: 0 auto; padding-block: 40px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 44px; }
+h1, h2 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(2rem, 6vw, 3rem); font-weight: 800; line-height: 1.05; }
+h2 { font-size: 1.35rem; font-weight: 600; }
+p { margin: 0; max-width: 65ch; }
+.eyebrow { font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 1.12rem; color: var(--ink); }
+section { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.head { display: flex; flex-direction: column; gap: 14px; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--rule); }
+.stat { padding: 14px 12px 14px 0; display: flex; flex-direction: column; gap: 2px; }
+.stat + .stat { padding-left: 12px; border-left: 1px solid var(--rule); }
+.stat b { font-family: var(--mono); font-weight: 500; font-size: 1.6rem; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat span { font-size: 0.82rem; color: var(--muted); line-height: 1.3; }
+.pos { color: var(--long); }
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.steps div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.steps strong { font-family: var(--display); font-weight: 600; font-size: 1.02rem; }
+.steps p { font-size: 0.95rem; color: var(--muted); }
+.charts-in { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+figure { margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.img-frame { background: #000; border-radius: 4px; padding: 10px; display: flex; justify-content: center; }
+.img-frame img { width: 100%; max-width: 240px; image-rendering: pixelated; display: block; }
+figcaption { font-size: 0.9rem; color: var(--muted); }
+figcaption b { font-family: var(--mono); font-weight: 500; }
+.tag { display: inline-block; font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 7px; border-radius: 3px; color: var(--paper); }
+.tag.buy { background: var(--long); } .tag.sell { background: var(--short); }
+.chart { position: relative; width: 100%; height: 300px; }
+.chart.tall { height: 340px; }
+.note { font-size: 0.9rem; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.88rem; color: var(--muted); }
+.legend i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+.fine { background: var(--tint); border-radius: 6px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+.fine ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 6px; max-width: 65ch; }
+footer { font-size: 0.82rem; color: var(--muted); border-top: 1px solid var(--rule); padding-top: 14px; }
+@media (max-width: 600px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat:nth-child(3) { padding-left: 0; border-left: 0; }
+  .stat:nth-child(n+3) { border-top: 1px solid var(--rule); }
+  .steps, .charts-in { grid-template-columns: 1fr; }
+  .chart { height: 260px; }
+}
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <div class="eyebrow">Backtest · US stocks · 2000 to mid-2026</div>
+    <h1>A neural net that reads stock charts</h1>
+    <p class="lede">It looks at a picture of a stock's last 20 trading days, the way a chartist would, and estimates the odds that the stock rises over the next month. Buying the top 10% of its picks and shorting the bottom 10% earned about {{ls_ann}}% a year for 26 years, before trading costs.</p>
+    <div class="stats">
+      <div class="stat"><b class="pos">{{ls_ann}}%</b><span>a year, long-short</span></div>
+      <div class="stat"><b>{{ls_sharpe}}</b><span>Sharpe ratio ({{sn_sharpe}} sector-neutral)</span></div>
+      <div class="stat"><b>{{ls_vol}}%</b><span>volatility, about half the market's</span></div>
+      <div class="stat"><b>{{positive_years}}/{{n_years}}</b><span>calendar years positive</span></div>
+    </div>
+  </header>
+
+  <section>
+    <h2>How it works</h2>
+    <div class="steps">
+      <div><strong>Draw the chart</strong><p>Every day, each of about 3,000 Russell 3000 stocks becomes a 64 × 60 pixel black-and-white image: daily price bars, a 20-day moving average and volume.</p></div>
+      <div><strong>Let the network read it</strong><p>A convolutional network, the kind used for image recognition, outputs the probability of a positive 20-day return. Five copies are averaged.</p></div>
+      <div><strong>Trade the extremes</strong><p>Buy the highest-ranked 10% and short the lowest 10%, equal weight, held a month. The model is retrained each year only on the past.</p></div>
+    </div>
+    <p class="note">This replicates Jiang, Kelly &amp; Xiu, "(Re-)Imag(in)ing Price Trends" (Journal of Finance, 2023). Every year shown is out of sample: it is scored by a model that never saw that year.</p>
+  </section>
+
+  <section>
+    <h2>What the network actually sees</h2>
+    <p>These are real inputs, drawn exactly as in training. Each column is one trading day: the vertical bar is the high-to-low range, the tick on the left is the open, the tick on the right is the close. The line is the 20-day moving average, and the bars at the bottom are volume. Both examples are Apple in 2025.</p>
+    <div class="charts-in">
+      <figure>
+        <div class="img-frame"><img src="{{buy_png}}" alt="Apple's 20-day price chart on {{buy_date}}, as the network sees it"></div>
+        <figcaption><span class="tag buy">Buy side</span> Apple, {{buy_date}}. The network gave <b>{{buy_score}}</b>, which put it at the <b>{{buy_pct}}</b>th percentile of all stocks that day, near the very top.</figcaption>
+      </figure>
+      <figure>
+        <div class="img-frame"><img src="{{sell_png}}" alt="Apple's 20-day price chart on {{sell_date}}, as the network sees it"></div>
+        <figcaption><span class="tag sell">Sell side</span> Apple, {{sell_date}}. The network gave <b>{{sell_score}}</b>, which put it at the <b>{{sell_pct}}</b>th percentile, near the bottom.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Growth of $1</h2>
+    <div class="legend">
+      <span><i style="background:var(--long)"></i>Top 10% of picks (long only)</span>
+      <span><i style="background:var(--market)"></i>All stocks, equal weight</span>
+      <span><i style="background:var(--short)"></i>Bottom 10% of picks</span>
+      <span><i style="background:var(--ink)"></i>Long-short (top minus bottom)</span>
+    </div>
+    <div class="chart tall"><canvas id="growth" aria-label="Growth of one dollar, log scale"></canvas></div>
+    <p class="note">Log scale. The top picks grew $1 to ${{d10_growth}} ({{d10_cagr}}% a year), against ${{ew_growth}} ({{ew_cagr}}% a year) for the average stock. The bottom picks managed only {{d1_cagr}}% a year. The long-short line is the market-neutral version, whose worst drawdown was {{ls_mdd}}%.</p>
+  </section>
+
+  <section>
+    <h2>The staircase</h2>
+    <p>Sort stocks into ten groups by the network's score and the returns line up in order: the more confident it is, the better the stock does on average.</p>
+    <div class="chart"><canvas id="deciles" aria-label="Average annual return by score decile"></canvas></div>
+    <p class="note">Average annual return of each group, held one month at a time, 2000–2026. The dashed line is the average stock.</p>
+  </section>
+
+  <section>
+    <h2>Year by year</h2>
+    <div class="chart"><canvas id="years" aria-label="Long-short return by calendar year"></canvas></div>
+    <p class="note">The long-short book's return each calendar year (2026 runs to June). The best years came in the 2000s, and the last three years have been flat.</p>
+  </section>
+
+  <section>
+    <h2>Where it works best</h2>
+    <div class="chart"><canvas id="slices" aria-label="Sharpe ratio by stock size"></canvas></div>
+    <p class="note">Sharpe ratio of the long-short book. Sector-neutral means it buys and shorts equal amounts within each sector, which removes industry bets and lifts the Sharpe in every slice. Small caps are the sweet spot.</p>
+  </section>
+
+  <section class="fine">
+    <h2>The fine print</h2>
+    <ul>
+      <li>All returns are gross: no trading costs, borrow fees or slippage. The strategy turns over heavily every month, so real-world returns would be meaningfully lower, especially in small caps.</li>
+      <li>It has faded. The Sharpe ratio was {{p1_sharpe}} over 2000–2011 and {{p2_sharpe}} over 2012–2026. The last three years returned {{y3_ann}}% a year, and the last twelve months {{y1_ann}}%.</li>
+      <li>Much of the edge overlaps well-known price effects, like short-term reversal and the tendency of lottery-like stocks to disappoint. Controlling for those, the leftover signal was strong before 2012 and roughly zero since.</li>
+      <li>It works far better in small caps (Sharpe {{small_sharpe}}) than large caps ({{large_sharpe}}).</li>
+      <li>Results use 20 staggered monthly portfolios, so they don't depend on a lucky rebalance date, and they include stocks that later went bankrupt or were delisted.</li>
+    </ul>
+  </section>
+
+  <footer>A personal research replication, not investment advice. Data: point-in-time Russell 3000 membership and Bloomberg daily prices, 1996–2026. 25 million out-of-sample stock-day scores.</footer>
+</div>
+
+<script>
+const D = /*__DATA__*/null;
+const C = { long: '#0f7a58', short: '#b8432f', market: '#8a97a8', ink: '#15211d', muted: '#5b6b65', rule: '#dfe6e2', longSoft: 'rgba(15,122,88,0.30)' };
+function start() {
+  if (!window.Chart) return;
+  Chart.defaults.font.family = '"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif';
+  Chart.defaults.color = C.muted;
+  Chart.defaults.borderColor = C.rule;
+  Chart.defaults.maintainAspectRatio = false;
+  Chart.defaults.animation = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? false : { duration: 500 };
+  const pct = v => (v > 0 ? '+' : '') + v + '%';
+  const g = D.growth;
+  const line = (label, data, color, width) => ({ label, data, borderColor: color, backgroundColor: color, borderWidth: width, pointRadius: 0, tension: 0 });
+  new Chart(document.getElementById('growth'), {
+    type: 'line',
+    data: { labels: g.dates, datasets: [
+      line('Top 10% of picks', g.D10, C.long, 2.2), line('All stocks, equal weight', g.EW, C.market, 1.6),
+      line('Bottom 10% of picks', g.D1, C.short, 1.6), line('Long-short', g.LS, C.ink, 2.2)] },
+    options: { interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.dataset.label + ': $' + c.parsed.y.toFixed(2) } } },
+      scales: { y: { type: 'logarithmic', min: 0.25, max: 30, afterBuildTicks: ax => { ax.ticks = [0.25, 0.5, 1, 2, 5, 10, 20].map(v => ({ value: v })); }, ticks: { callback: v => '$' + v } },
+                x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 7, callback: function (v) { return this.getLabelForValue(v).slice(0, 4); } } } } }
+  });
+  const dz = D.deciles;
+  new Chart(document.getElementById('deciles'), {
+    type: 'bar',
+    data: { labels: dz.decile.map(d => d === '1' ? '1 (worst)' : d === '10' ? '10 (best)' : d), datasets: [
+      { label: 'Average annual return', data: dz.ann_return, backgroundColor: dz.ann_return.map(v => v >= dz.ew ? C.long : C.longSoft), borderRadius: 2 },
+      { type: 'line', label: 'Average stock', data: dz.decile.map(() => dz.ew), borderColor: C.ink, borderDash: [5, 4], borderWidth: 1.2, pointRadius: 0 }] },
+    options: { plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.parsed.y + '%' } } },
+      scales: { y: { beginAtZero: true, ticks: { callback: v => v + '%' } }, x: { grid: { display: false }, title: { display: true, text: 'Score group' } } } }
+  });
+  const y = D.years;
+  new Chart(document.getElementById('years'), {
+    type: 'bar',
+    data: { labels: y.year.map(String), datasets: [{ label: 'Long-short', data: y.LS, backgroundColor: y.LS.map(v => v >= 0 ? C.long : C.short), borderRadius: 2 }] },
+    options: { plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => pct(c.parsed.y) } } },
+      scales: { y: { ticks: { callback: v => v + '%' } }, x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true, callback: function (v) { const s = this.getLabelForValue(v); return (+s % 5 === 0) ? s : ''; } } } } }
+  });
+  const s = D.slices;
+  new Chart(document.getElementById('slices'), {
+    type: 'bar',
+    data: { labels: s.map(r => r.label), datasets: [
+      { label: 'Plain', data: s.map(r => r.raw), backgroundColor: C.market, borderRadius: 2 },
+      { label: 'Sector-neutral', data: s.map(r => r.sn), backgroundColor: C.long, borderRadius: 2 }] },
+    options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, boxHeight: 12 } }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.parsed.y.toFixed(2) } } },
+      scales: { y: { beginAtZero: true, title: { display: true, text: 'Sharpe ratio' } }, x: { grid: { display: false } } } }
+  });
+}
+start();
+</script>
