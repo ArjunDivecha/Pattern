@@ -46,8 +46,6 @@ pip install -r requirements.txt
 
 ## Quick Start
 
-> **Runtime caveat:** The training commands below (`python -m pattern.cli ...`, `scripts/run_multi_gpu.py`) import `pattern.data.{loader,splits}`, which are **not committed to this repository**. They will fail with `ModuleNotFoundError` until `pattern/data/` is restored. The commands document the intended invocation. See [Architecture — Data Layer](architecture.md#loader-patterndataloaderpy).
-
 ### Debug run (local, MPS/CPU)
 ```bash
 python -m pattern.cli train --config configs/debug.yaml
@@ -73,22 +71,19 @@ python -m pattern.cli backtest --config configs/prod_expanding.yaml \
 pytest tests/ -v
 ```
 
-> `tests/test_labeling.py` and `tests/test_splits.py` import `pattern.data.{loader,splits}`, which are not committed to this repo, so these tests cannot collect until `pattern/data/` is restored. See [Testing](testing.md).
-
 ### Launch the live scoring webapp
 ```bash
 cd webapp && uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
-
-> `webapp/scorer.py` imports `pattern.data.loader`, which is not committed to this repo. The webapp will not start until `pattern/data/` is restored.
 
 ---
 
 ## Documentation Sections
 
 - [Architecture](architecture.md) — Core pipeline design: data loading, image rendering, CNN model, training loop, backtest engine, and config system
-- [Workflows](workflows.md) — End-to-end workflows: training (debug/production), multi-GPU orchestration, backtesting, live scoring, data building, price splice, Tracker paper book, daily publishing job
+- [Workflows](workflows.md) — End-to-end workflows: training (debug/production), multi-GPU orchestration, backtesting, live scoring, data building, price splice, signal evaluation and Addendum L research scripts, Tracker paper book, daily publishing job
 - [Domain & Strategy](domain.md) — The financial strategy, research findings, cross-sectional slicing, trash-tier/liquid-grid analysis, ETF deployment attempts, cost/capacity conclusions, the $5 price floor and return-convention corrections (Addenda J–K), and the Tracker paper book
+- [Kill-or-Confirm Review (Addendum L)](research.md) — The leakage-guard audit, unified signal harness, baseline gauntlet, factor neutralization, pre-registered GBDT label bake-off, Dixon geometry vetting, and the `rlcc` close-location signal that failed out-of-sample replication
 - [Operations](operations.md) — Configs, run directory layout, image cache, hardware setup, daily publishing job, webapp deployment, data files
 - [Testing](testing.md) — Test coverage, what each test validates, and how to run them
 
@@ -116,18 +111,18 @@ cd webapp && uvicorn main:app --reload --host 0.0.0.0 --port 8000
 | Change area / intent | Wiki page | Source entry points | Important symbols / types | Focused tests | Minimal validation |
 |---|---|---|---|---|---|
 | Renderer / image geometry | [Architecture](architecture.md) | `pattern/imaging/renderer.py` | `render_window`, `render_batch` | `tests/test_renderer.py` | `pytest tests/test_renderer.py -v` |
-| Label / split logic (`pattern/data/`) | [Architecture](architecture.md), [Testing](testing.md) | `pattern/data/{loader,splits}.py` (missing) | `load_data`, `compute_labels`, `debug_split`, `balance_labels` | `tests/test_labeling.py`, `tests/test_splits.py` | `pytest tests/test_labeling.py tests/test_splits.py -v` (blocked until `pattern/data/` restored) |
+| Label / split logic (`pattern/data/`) | [Architecture](architecture.md), [Testing](testing.md) | `pattern/data/{loader,splits}.py`, `pattern/cli.py` | `load_data`, `compute_labels`, `debug_split`, `balance_labels`, `purge_days` | `tests/test_labeling.py`, `tests/test_splits.py`, `tests/test_purge_guard.py` | `pytest tests/test_labeling.py tests/test_splits.py tests/test_purge_guard.py -v` |
 | CNN architecture | [Architecture](architecture.md) | `pattern/models/cnn.py`, `pattern/models/blocks.py` | `ChartCNN`, `ConvBlock` | (none; training convergence on debug config) | `python -m pattern.cli train --config configs/debug.yaml` (blocked) |
 | Backtest metrics / price floor | [Architecture](architecture.md), [Domain](domain.md) | `pattern/backtest/{deciles,metrics,report}.py`, `scripts/backtest_trash_tier.py`, `scripts/backtest_liquid_grid.py` | `newey_west_variance`, `summarize_series`, `--min-price` | (none; compare README §J.3) | `python scripts/backtest_trash_tier.py --min-price 5.0` |
 | Tracker paper book / daily job | [Workflows](workflows.md), [Operations](operations.md) | `scripts/mark_book.py`, `scripts/run_daily.sh`, `scripts/com.arjundivecha.pattern-daily.plist` | `MIN_PRICE`, `track` column, `PATTERN DAILY OK` | (none; end-to-end) | `zsh scripts/run_daily.sh` (look for `PATTERN DAILY OK`) |
 | Price splice / staleness | [Workflows](workflows.md) | `scripts/splice_daily_update.py`, `scripts/score_live.py` | `tradeable` flag, `--tickers-csv`, `--tail-days` | (none) | `python scripts/splice_daily_update.py --csv` |
 | Config schema | [Architecture](architecture.md) | `pattern/config.py` | `Config`, `Config.from_yaml` | All tests load config | `python -c "from pattern.config import Config; Config.from_yaml('configs/debug.yaml')"` |
-| Webapp | [Workflows](workflows.md), [Operations](operations.md) | `webapp/main.py`, `webapp/scorer.py` | FastAPI `app`, `score_ticker` | (none; manual) | `cd webapp && uvicorn main:app` (blocked until `pattern/data/` restored) |
+| Webapp | [Workflows](workflows.md), [Operations](operations.md) | `webapp/main.py`, `webapp/scorer.py` | FastAPI `app`, `score_ticker` | (none; manual) | `cd webapp && uvicorn main:app` |
+| Signal evaluation / Addendum L research | [Workflows](workflows.md#signal-evaluation-scriptsevaluate_signalpy), [Kill-or-Confirm Review](research.md) | `scripts/evaluate_signal.py`, `scripts/baseline_gauntlet.py`, `scripts/neutralize_p_up.py`, `scripts/gbdt_label_bakeoff.py`, `scripts/rlcc_sweep.py` | `evaluate_signal`, `MIN_PRICE` | `tests/test_purge_guard.py`, `tests/test_strawman_frozen.py` | `pytest tests/test_purge_guard.py tests/test_strawman_frozen.py -v` |
 | Strategy / research findings | [Domain](domain.md) | `README.md` addenda A–K, `strategy_memo.md`, `scripts/backtest_*.py` | — | (none) | — |
 
 ---
 
 ## Backlog
 
-- **`pattern/data/` package (`loader.py`, `splits.py`) is missing from the repository.** Imported by `pattern/cli.py`, `pattern/imaging/cache.py`, `pattern/train/dataset.py`, `webapp/scorer.py`, `scripts/score_live.py`, and `tests/test_{labeling,splits}.py` (referenced in docstrings by `scripts/splice_daily_update.py`), but not tracked by git and absent on disk. The CLI pipeline, tests, webapp, and daily job's scoring step cannot run until it is restored. The wiki documents the intended API from import sites; verify against source once the files are added. Reason deferred: source files are not present, so behavior cannot be verified.
 - **Tracker holdings page not yet wired.** `mark_book.py` publishes `holdings_latest.csv` and the hub row carries the position count, but the Tracker hub still needs a `(list[HoldingRow], BookCharacteristics)` loader (see `MEMO-TRACKER-INTEGRATION.md`). The book itself is published; only the hub display is missing. Reason deferred: work happens in the Tracker repo, not here.

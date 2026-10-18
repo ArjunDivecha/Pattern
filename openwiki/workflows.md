@@ -6,7 +6,7 @@ description: "End-to-end workflows for the Pattern pipeline: Bloomberg data buil
 
 # Workflows
 
-This page covers the end-to-end workflows: data building, training (debug and production), multi-GPU orchestration, backtesting, live scoring, pathway merging, and the daily publishing job that feeds the Tracker paper book.
+This page covers the end-to-end workflows: data building, training (debug and production), multi-GPU orchestration, backtesting, live scoring, pathway merging, signal evaluation and research workflows (the Addendum L kill-or-confirm review), and the daily publishing job that feeds the Tracker paper book. The research workflows feed a separate set of Tracker sleeves documented in [Tracker Paper Book](#tracker-paper-book-scriptsmark_bookpy) and [Domain — Tracker Paper Book](domain.md#tracker-paper-book).
 
 ---
 
@@ -139,6 +139,112 @@ Reusable backtest over any `predictions.parquet` + optional universe filter. Ran
 | `backtest_sse_momentum.py` | Alternative momentum signals on SSE universe |
 
 See [Domain & Strategy](domain.md) for the research findings from these scripts.
+
+---
+
+## Signal Evaluation (`scripts/evaluate_signal.py`)
+
+Addendum L (see [Kill-or-Confirm Review](research.md)) introduced a single
+unified scoring harness so that every ranking signal — the CNN's `p_up`, a
+reversal signal, a GBDT score, the `rlcc` close-location signal — is measured
+on the same footing. Prior to this each backtest script computed returns its
+own way, which is how the 7× [reporting error](domain.md#return-convention-and-price-floor-corrections-addenda-jk)
+survived. The research scripts below all route their results through this one
+harness; this section is the script-level entry point for them.
+
+### The unified harness (`scripts/evaluate_signal.py`)
+
+**THE one measuring stick.** Scores any `--signal` parquet (columns
+`ticker, end_date, <score column>`) against the spliced OHLCV panel
+(`data/r1000_ohlcv_spliced.parquet`, falling back to the unspliced database).
+Outputs `signal_card.xlsx` (deciles, LS variants, sub-periods, one sheet each)
+and `signal_card.json` (machine-readable summary for cross-run comparison).
+
+Two rules it enforces, both learned the hard way (README Addenda J/K):
+
+1. **Portfolio arithmetic is the headline.** An equal-weighted book earns the
+   mean of *simple* returns; the repo's `forward_return` is a 20-day LOG return,
+   and compounding mean-log differences overstates a long/short spread by
+   ~`σ²/2` of the short leg (+7.14pp/yr on the trash tier). The log number is
+   kept only as a labelled cross-reference, never the headline.
+2. **A price floor is mandatory.** `MIN_PRICE = 5.0` is applied **before**
+   bucketing (same order as `backtest_liquid_grid.py --min-price`); without it
+   the simple-return decile book is not even computable — months fall below
+   −100%. Everything is gross of costs, per house convention.
+
+```bash
+# the CNN reference card
+python3 scripts/evaluate_signal.py \
+    --signal runs/expanding/20260419_174908_cdef6809/predictions_monthly.parquet \
+    --score-col p_up_mean --label "CNN p_up" \
+    --out-dir runs/experiments/stage0_reference_p_up
+
+# any challenger signal, same stick
+python3 scripts/evaluate_signal.py --signal <file> --score-col rev_1m \
+    --lower-is-better --label STR --out-dir <dir>
+```
+
+`--higher-is-better/--lower-is-better` flips the sort so a reversal signal is
+scored on equal footing without hand-editing the input. Months with fewer than
+`--min-names` usable rows are skipped and counted in the JSON. A `computable`
+flag is reported instead of a misleading number.
+
+### Addendum L research scripts
+
+All of the following are scored through the unified harness and feed the
+[Kill-or-Confirm Review](research.md); this section is their script-level entry
+point.
+
+| Script | Gate | Purpose |
+|---|---|---|
+| `scripts/baseline_gauntlet.py` | L.3 | Builds `rev_1m`, `rev_5d` (WSTR), `mom_12_1`, `vol_60d`, and a `combo` blend at each month-end; tests IC, head-to-head, and double-sorts |
+| `scripts/neutralize_p_up.py` | L.4–L.5 | Fama-MacBeth regressions and factor neutralization of `p_up` against price-based baselines, then size/sector |
+| `scripts/plot_signal_comparison.py` | L.6 | Plots cumulative books by era, exposing the post-2004 flatline |
+| `scripts/gbdt_label_bakeoff.py` | L.9 | Pre-registered xgboost on 21 features testing label variants L0–L3 on the CNN's exact expanding schedule |
+| `scripts/rlcc_sweep.py` | L.12 | Sweeps 144 `rlcc` variants on a tune/validate time split; ranks on the worse half |
+| `scripts/rlcc_international.py` | L.13 | Pre-committed out-of-sample test of `rlcc` on Australia/UK/Japan |
+| `scripts/publish_rlcc.py` | L.11 | Publishes the `rlcc` close-location reversal book (`data/tracker/rlcc-top500/`) to Tracker |
+
+`publish_rlcc.py` is the Tracker-publishing sibling of `mark_book.py`: at each
+month-end it ranks the 500 most liquid US names by where they closed inside
+the day's high-low range relative to a 60-day baseline (`clv` normalized), buys
+the decile that closed lowest, shorts the highest, enters at the next open,
+holds 20 days. Same daily-mark arithmetic and `meta.json`/`nav_daily.csv` shape
+as the [Tracker Paper Book](#tracker-paper-book-scriptsmark_bookpy) sleeves.
+
+### Visual Analog kNN (`scripts/analog_knn/`)
+
+Drafted in `PRD_Visual_Analog_KNN.md` (Phase 0 implemented, no promotable
+result). Asks whether *market memory of shape across names* predicts returns
+beyond the CNN's own `p_up` head and beyond reversal. Three scripts:
+
+| Script | Role |
+|---|---|
+| `scripts/analog_knn/extract_embeddings.py` | Walk-forward penultimate `ChartCNN` GAP embeddings (256-d, L2-normed) for each month-end formation date; each OOS year embedded only by that expanding window's 5-seed ensemble, pixel stats from training years (no look-ahead) |
+| `scripts/analog_knn/query_knn.py` | Leakage-safe cross-ticker visual kNN: L1 same-ticker exclusion, L2 neighbor outcome fully known at query date, L3 walk-forward embeddings, L4 panel membership |
+| `scripts/analog_knn/run_phase0.py` | Orchestrator: extract → query → `evaluate_signal` for analog + baselines → comparison table + report.md + leakage checklist |
+
+Leakage rules are property-tested in
+[`scripts/analog_knn/tests/test_leakage.py`](testing.md#analog-knn-leakage-property-tests)
+(outcome-available dating, same-ticker self-exclusion).
+
+### Residual Pattern + Dixon Geometry + Attention Gate (`scripts/residual_geometry/`)
+
+Drafted in `PRD_Residual_Geometry_Attention.md` (Phase 0 + stress test
+implemented, no promotable result). Hardens `p_up` residualized against free
+baselines, adds Dixon geometric features as residualization controls, and an
+FOMC attention gate as a timing overlay.
+
+| Script | Role |
+|---|---|
+| `scripts/residual_geometry/build_signals.py` | Builds residual/geometry/FOMC signals and runs `evaluate_signal` cards |
+| `scripts/residual_geometry/run_phase0.py` | Phase 0 orchestrator: build signals → evaluate → report |
+| `scripts/residual_geometry/stress_rlcc.py` | Stress test for the `rlcc` signal across constructions |
+| `scripts/residual_geometry/mark_multi_signal.py` | Publishes multi-signal Tracker sleeves (`pattern-rlcc-liquid`, `pattern-pup-resid-liq`, `pattern-combo-liquid`) and measures incremental IR of the combo; same daily-mark arithmetic as `mark_book.py` |
+
+Both research packages depend on the unified harness above and are governed by
+the "treat the implementation-lag test as mandatory" discipline established in
+§L.8–L.11 (see [Kill-or-Confirm Review](research.md)).
 
 ---
 

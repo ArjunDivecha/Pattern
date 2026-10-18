@@ -91,9 +91,7 @@ Each run writes to `runs/<pathway>/<timestamp>_<config_hash>/`:
 
 ## Webapp Deployment
 
-The FastAPI live-scoring app is in `webapp/`.
-
-> `webapp/scorer.py` imports `pattern.data.loader` (the `build_ticker_index`/`get_window` functions), which is **not committed to this repository**. The webapp will not start until `pattern/data/` is restored.
+The FastAPI live-scoring app is in `webapp/`. It imports `pattern.data.loader` (`build_ticker_index`, `get_window`) to render the I20 chart for a requested ticker.
 
 ### Files
 
