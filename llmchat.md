@@ -1020,3 +1020,43 @@ The user asked for a brief, shareable description of the R3000 CNN strategy with
 ---
 SESSION END: 2026-10-17 23:45 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-18 01:30 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+User asked how to share the CNN page, then asked for a shareable app: enter any yfinance ticker, get a forecast. Advised sharing the Artifact link (public via Share menu; works without a Claude account; check in a private window), not the HTML. Pushed back on a "next-month return forecast": the single-stock edge is tiny (about 52% hit rate; top decile beats average by about 2.6% a year), so the app reports only a percentile against the US crowd. The user chose Railway (already paid for), dynamic any-ticker, percentile only. Built and tested the app locally in `/Users/arjundivecha/code/pattern-live/` (git commit `9babb03`, local only, no remote). It is not deployed.
+
+### Decisions Made
+- Output is a percentile and decile with that decile's 2000–2026 record, not a return forecast and not a raw probability. Raw probabilities are not comparable because each fold is calibrated differently.
+- Models: the five seeds of the 2026 fold from `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/Y2026/`, about 14 MB in total. They are committed to the app repo because the Docker deploy needs them. This is an exception to the "code only in git" rule.
+- Host: Railway, with a volume at `/data`, a new project `pattern-chart-reader`, built from the Dockerfile.
+- Non-US tickers, ETFs and crypto are scored but carry an "only tested on US stocks" warning. The percentile is always against the US crowd.
+
+### Architecture / Design
+- FastAPI app under `/Users/arjundivecha/code/pattern-live/app/`: `engine.py` (fetch, bar checks, render, score), `reference.py` (builds the ranking of the US stock universe), `main.py` (API), `static/index.html` (page with the model's-eye image and a candlestick chart), `vendor/` (CNN code copied with relative imports). Tests are in `tests/test_engine.py`. Parity code is `tools/parity_check.py` with `tools/parity_report.json`.
+- The reference set has 2,946 US stocks as of 2026-10-16, built in about 2 minutes. Sample percentiles: NVDA 95, AAPL 87, SPY 78, VOD.L 68, Toyota 52, Reliance 19, BTC 3.
+- Checks passed: the engine matches the research scores to within 0.00003, the Yahoo-based ranks match the research ranks at 0.997, and all 5 unit tests pass. Local end-to-end check passed at http://127.0.0.1:8791 (port 8765 was already taken by another program).
+
+### What To Build Next
+1. The user runs `! railway login`, which is interactive. The CLI has logged out.
+2. Create the Railway project and volume, deploy, and verify the live URL with Playwright.
+3. Test Yahoo throttling from Railway's cloud IPs. It may be stricter than from the user's home connection.
+4. Add the nightly reference refresh (in-service scheduled job).
+5. Later: test whether the signal travels to the sealed Japanese data.
+
+### Constraints & Gotchas
+- Yahoo throttled the app briefly right after the 3,000-stock download. The engine now retries and tells the user when Yahoo is busy.
+- The requirements pins were loosened and then re-pinned after resolving. The PyTorch CPU index needs `--index-strategy unsafe-best-match` with uv.
+
+### Open Questions
+- Still unanswered: whether to delete the stopped scoring attempt `full_db_scores_20261017T034601Z` and the superseded run from task `b87r6cq5k`.
+- The user has not confirmed the Railway project creation or the cost.
+
+### Context for Next Session
+Waiting on the user's `railway login`. Nothing is deployed or pushed.
+
+---
+SESSION END: 2026-10-18 01:30 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
