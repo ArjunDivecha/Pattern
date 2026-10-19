@@ -1060,3 +1060,45 @@ Waiting on the user's `railway login`. Nothing is deployed or pushed.
 ---
 SESSION END: 2026-10-18 01:30 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-18 18:01 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+The user said their WhatsApp contacts couldn't open the shared page link. The Artifact link needs a Claude login, which contradicts the earlier advice in this log that it works without an account. Replaced the link with files that open natively in WhatsApp. Wrote and ran a headless-Chrome exporter that renders the share page into five phone-sized PNG cards and one long PDF. Checked `3_growth.png` and `2_what_it_sees.png` visually. Both were cropped flush to the text, so a margin was added and the pack regenerated. Sent the files to the user and gave them a draft group message. Committed locally as `c9f1180` in the Pattern repo (not pushed).
+
+### Decisions Made
+- Distribute as images plus a PDF rather than a link, because a link must not require a login.
+- Playwright and headless Chrome were found available and used for the render.
+- The live link is deferred to the Railway ticker app, whose address needs no login. That app is still not deployed.
+
+### Architecture / Design
+- Exporter: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/share_export.py`. It renders the share page into `whatsapp/` under the run's `share_page_20261018T061510Z/` directory.
+- Run directory: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/share_page_20261018T061510Z/whatsapp/`
+- Outputs, also copied to `/Users/arjundivecha/Desktop/Pattern WhatsApp/`:
+  - `1_summary.png`
+  - `2_what_it_sees.png` (the real Apple input charts, buy side and sell side)
+  - `3_growth.png` (growth of $1)
+  - `4_staircase.png` (return by score group)
+  - `5_years.png` (year by year)
+  - `pattern_cnn_backtest.pdf` (the whole page as one long scroll)
+- The draft message states: ~3,000 US stocks, 2000–2026, every year out of sample, long top decile and short bottom decile ≈10% a year at half the market's volatility before costs, faded a lot since 2012.
+
+### What To Build Next
+1. The user runs `! railway login`, then deploy the ticker app (see the previous entry).
+2. Verify the deployed URL opens in a logged-out browser before telling anyone it needs no login.
+
+### Constraints & Gotchas
+- Artifact links are not publicly openable by default. The earlier advice to share the Artifact link was wrong for this audience. Next time, test any share link in a logged-out browser before recommending it.
+- The first export had images cropped flush to the text. The margin fix is in the committed version.
+
+### Open Questions
+- Whether the Railway ticker URL will work for outside users. It is untested because it is not deployed.
+
+### Context for Next Session
+The WhatsApp pack is done and delivered. Nothing is pushed. Railway login is still the blocker for the live app.
+
+---
+SESSION END: 2026-10-18 18:01 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
