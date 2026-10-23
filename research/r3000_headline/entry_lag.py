@@ -163,7 +163,7 @@ def main():
             intra, over = np.full(nrow, np.nan), np.full(nrow, np.nan)
             parts = []
             for (row0,), gg in gl.groupby(['row']):
-                if row0 + H + 1 >= nrow:
+                if row0 + H >= nrow:
                     continue
                 cols = gg['col'].to_numpy()
                 bk = np.flatnonzero(gg[col].to_numpy() == -1.0) if col == 'ret_bk_zero' else np.array([], int)
@@ -180,6 +180,8 @@ def main():
                 v0 = p0.mean(axis=1)
                 full_sum['close0'][row0 + 1:row0 + H + 1] += v0[1:] / v0[:-1] - 1
                 full_n['close0'][row0 + 1:row0 + H + 1] += 1
+                if row0 + H + 1 >= nrow:      # the lagged entries need one more session
+                    continue
                 # names that can be bought on t+1
                 live = OBS[row0 + 1, cols]
                 if leg == 'EW':
