@@ -1102,3 +1102,41 @@ The WhatsApp pack is done and delivered. Nothing is pushed. Railway login is sti
 ---
 SESSION END: 2026-10-18 18:01 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-20 09:30 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+The user asked whether the backtest trades at the same close or at the next day's open. The code was checked (no code changed). It trades at the same close. Every return enters at the close of the day the chart ends on, which is the close the network just saw, and exits at the close 20 trading days later.
+
+### Decisions Made
+No decisions yet. The assistant proposed a lag test and the user has not yet said yes.
+
+### Architecture / Design
+Execution convention, confirmed in the code (all in `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/`):
+- Monthly portfolios: return = TRI(t+20) / TRI(t) − 1, where t is the chart's last day (`prepare.py:19`).
+- Staggered book: each tranche's value path starts at `T[row0]`, the signal day's close (`offsets.py:274`).
+- This matches the Jiang, Kelly & Xiu paper convention but is optimistic. A real trader cannot see the close and trade at it. The closest practical version is computing the signal a few minutes before 4pm and sending market-on-close orders.
+
+### What To Build Next
+Rerun the staggered book (gross, all 20 tranches, otherwise unchanged) with two later entries, using data already on disk (a few minutes):
+1. Entry at the next day's open: signal computed overnight, the realistic version.
+2. Entry at the next day's close: skip one full day.
+
+Compare each against the headline ~9.8% a year (gross). Edit `offsets.py` or add a lag option there.
+
+### Constraints & Gotchas
+- Much of the signal overlaps short-term reversal, and reversal profits concentrate in the first day after formation. A one-day delay could cut the 9.8% a year materially. The size of the cut is unmeasured: it could be a trim or most of the edge.
+- All headline and share-page numbers (WhatsApp pack, summary) currently use same-close entry. They need this caveat until the lag test is run.
+
+### Open Questions
+- Whether the user wants the lag test run (the assistant asked "Want me to run it?").
+- How much of the 9.8% a year survives next-open and next-close entry.
+
+### Context for Next Session
+Nothing was run or changed in this stretch. If the user says yes, run the two-lag test on the staggered book. Report the next-open result as the realistic headline. If the edge drops sharply, update the share page and the WhatsApp pack files in `/Users/arjundivecha/Desktop/Pattern WhatsApp/`.
+
+---
+SESSION END: 2026-10-20 09:30 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
