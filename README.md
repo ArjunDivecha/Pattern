@@ -2454,3 +2454,22 @@ point-in-time membership for Russell 3000 work. Publisher:
 Files: `runs/headline_I20R20_v2_cloud_20261012T034158Z/full_db_scores_20261017T034904Z/` (`Y<year>.parquet`
 with per-seed scores and a member flag, `verification.json`, `summary.json`, `score_all_db.log`). The
 earlier `full_db_scores_20261017T034601Z` is the run that stopped on the original gate.
+
+### M.6  Entry timing: signal-day close vs next-day open (`entry_lag.py`, 2026-10-23)
+
+Every earlier backtest enters at the close of the day the chart ends on, which is the close the network
+has just read. Entering at the next day's open instead, which is achievable, costs little. The
+staggered long-short book falls from 9.7% to 9.2% a year, and its Sharpe ratio falls from 0.93 to 0.88.
+Skipping a full day and entering at the next close gives 8.8% and 0.84. The sector-neutral book keeps
+a Sharpe of 1.10 at the next-day open. Every sub-period and size slice moves by a similar small amount.
+
+The edge is not concentrated in the first day, contrary to what a reversal-driven signal would
+suggest. Splitting each tranche's return, days 2 to 20 carry about 8 of the 9.4 points a year. The
+first day's intraday move carries about 1.3 points, and the overnight gap right after the signal is
+slightly negative. The last three years stay flat under every entry rule.
+
+The signal-day-close book reproduces `offsets.py` to 1e-15. Names with no bar on the next day cannot
+be bought and were dropped: 3,624 of 19.5 million. Files:
+`runs/headline_I20R20_v2_cloud_20261012T034158Z/entry_lag_20261023T235947Z/` (`entry_lag.pdf`,
+`entry_lag.xlsx`, `lag_stats.parquet`, `decomposition.parquet`). `entry_lag_20261023T235653Z/` is a
+failed first run: its reproduction check caught an off-by-one day.
