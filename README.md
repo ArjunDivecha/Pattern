@@ -2473,3 +2473,27 @@ be bought and were dropped: 3,624 of 19.5 million. Files:
 `runs/headline_I20R20_v2_cloud_20261012T034158Z/entry_lag_20261023T235947Z/` (`entry_lag.pdf`,
 `entry_lag.xlsx`, `lag_stats.parquet`, `decomposition.parquet`). `entry_lag_20261023T235653Z/` is a
 failed first run: its reproduction check caught an off-by-one day.
+
+### M.7  Concentrated monthly long-short: SmallLiq vs full R3000, and the 100-name stress test (2026-11-01)
+
+These books are monthly, equal weight, entered at the next open, and gross. In the GDM SmallLiq indexed
+universe the signal is weak: the best result is 50 names per side, at a Sharpe of 0.53, and 0.30 since
+2006 (`smallliq_ls.py`). On the full R3000 it is strong. A book of 100 names per side, with a $1m-per-side
+capacity screen (ADV60 at least 20 times the position), has a Sharpe of 0.82 at month-end rebalancing
+(`smallliq_ls.py --universe r3000 --per-side-usd 1000000`).
+
+`stress_100.py` tests that book across all 20 rebalance days. The single-schedule Sharpe ranges from
+0.48 to 0.94 (median 0.73), and the schedule-averaged book earns 12.6% a year at a Sharpe of 1.00. That
+splits into a Sharpe of 1.37 for 2000–2011 and 0.67 for 2012–2026. The last 3 years are flat, and the
+last 12 months return −17%; an open drawdown of −22% began in April 2025.
+
+Results by variant:
+- **$5 floor on shorts:** Sharpe 1.04, 9.8% a year. Junk shorts are not required.
+- **$5 floor on both legs:** Sharpe 0.94.
+- **Scale:** the Sharpe falls as capital rises: 0.80 at $5m, 0.66 at $10m and 0.52 at $25m per side.
+- **Factor alpha, FF5 plus momentum:** 11.6% a year (t 5.7), and 8.5% (t 2.9) since 2012.
+- **Adding JKP reversal, lottery and idiosyncratic volatility:** 11.6% (t 5.8), and 7.3% (t 2.5) since 2012.
+
+The book has a negative market beta, −0.27. It earns +3.3% in the market's worst-decile months and
+−1.6% in its best. Break-even borrow is 12.6% a year on all shorts, or 7.7% since 2012. Output is in
+`runs/headline_I20R20_v2_cloud_20261012T034158Z/stress_100_20261101T041600Z/`.
