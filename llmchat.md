@@ -1179,3 +1179,40 @@ The lag test is done and committed (`4b36581`, not pushed). Next-open results ar
 ---
 SESSION END: 2026-10-23 17:33 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-31 22:21 CDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+User asked what the network's top 1% predicted stocks look like as a pattern. Wrote and ran `top1_pattern.py` on about 195,000 top-pick stock-days against matched bottom-1% and random samples. The first run failed (fix not detailed; log `top1_pattern_v1.0.log`), and the rerun succeeded. Committed as `3e6bf24` (not pushed).
+
+**Result:** the top 1% share a volume signature, not a price one. Volume over the last 5 days runs about 16% above the first 15 days, against 6% below for the average stock. On the signal day it is about 1.5 times the chart average. The price is flat and sits just above its 20-day average. The bottom 1% is the mirror image, with volume at about half its earlier level, price drifting below its average, and almost twice the volatility.
+
+### Architecture / Design
+- Script: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/top1_pattern.py`. There is no scikit-learn in the venv, so clustering is plain numpy.
+- Run dir: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/top1_pattern_20261101T024922Z/`. It holds `top1_pattern.pdf`, `top1_pattern.xlsx`, `clusters.parquet`, `group_returns.parquet`, `shape_stats.parquet`, `mean_images.npz` and `summary.json`.
+- Logs: `verify_logs/top1_pattern_v1.0.log` (failed) and `verify_logs/top1_pattern_v1.0_run2.log` (good).
+- Shape clusters of the top 1%:
+  - Steady climbers, 44%: a gentle 4% rise with low volatility. About 3% a year ahead of the average stock, the weakest group.
+  - Pullbacks on rising volume, 39%: down about 9% and still slipping in the last week. About 9% a year ahead.
+  - Breakouts, 11%: a quiet base, then a 17% jump, closing at the range top on surging volume. This is 12 times more common in the top 1% than in the market. About 7% a year ahead.
+  - Run-up-and-stall stocks, 5%: up about 40% with volume fading. These lagged by about 7% a year, which is the network's clear mistake.
+
+### Constraints & Gotchas
+- **Skew:** the top 1% beat the average stock by about 6% a year, roughly double the top 10%'s margin. Only about half of those stocks beat the average in a given month, so a few big winners carry the edge.
+- **Sell side is stronger:** the bottom 1% lagged by about 13% a year and beat the average only 44% of the time.
+- **Fade (surprising):** the top 1% edge was 12% a year in 2000–2011 and about 1.4% since 2012. The bottom 1% held up better, going from about −16% to −11% a year. The network now identifies stocks to avoid better than stocks to buy.
+- The figures average overlapping holding periods and carry no significance tests. They are descriptive only.
+- The 12% and 1.4% sub-period figures use same-close entry, as the earlier headline numbers did. The next-open entry check in `entry_lag.py` was not applied here.
+
+### Open Questions
+- Whether the recent top-1% fade is real or just noise from overlapping holding periods. A significance test is needed.
+- Whether to build a short-side or avoid-list use of the bottom 1%, given its stronger and steadier edge.
+
+### Context for Next Session
+The top-1% description is done and committed (`3e6bf24`, not pushed). The PDF was sent to the user. No decision has been made on follow-ups. The earlier items remain open: share page and WhatsApp pack in `/Users/arjundivecha/Desktop/Pattern WhatsApp/` still quote same-close numbers, and the failed folder `entry_lag_20261023T235653Z` is still undeleted.
+
+---
+SESSION END: 2026-10-31 22:21 CDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
