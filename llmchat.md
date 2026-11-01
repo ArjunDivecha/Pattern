@@ -1140,3 +1140,42 @@ Nothing was run or changed in this stretch. If the user says yes, run the two-la
 ---
 SESSION END: 2026-10-20 09:30 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-10-23 17:33 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+The user said yes to the lag test. Wrote and ran `entry_lag.py`, covering the six existing books under three entry rules: signal-day close, next-day open, next-day close. The first run failed (the fix is not detailed in the activity). It left a partial folder, `entry_lag_20261023T235653Z`. The rerun succeeded and was committed as `4b36581` (not pushed), with README section M.6.
+
+**Result:** the realistic execution assumption barely costs anything.
+- Long-short, gross: signal-day close 9.7% a year, Sharpe 0.93. Next-day open 9.2%, Sharpe 0.88. Next-day close 8.8%, Sharpe 0.84.
+- The sector-neutral book still has a Sharpe of 1.10 at next-open entry.
+- The big and small stock slices and both halves of the period each shift by about the same small amount.
+
+### Decisions Made
+None yet. The assistant offered to switch the share page and WhatsApp pack to the next-open numbers (9.2% a year, Sharpe 0.88). The user has not answered. The assistant also offered to delete the failed run folder, pending a yes.
+
+### Architecture / Design
+- New script: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/entry_lag.py`. Run dir: `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/`.
+- Output folder: `entry_lag_20261023T235947Z/` with `entry_lag.pdf`, `entry_lag.xlsx`, `lag_stats.parquet`, `decomposition.parquet`, `summary.json`.
+- Logs are in `verify_logs/`: `entry_lag_v1.0.log` (failed run) and `entry_lag_v1.0_run2.log` (good run).
+- Return decomposition (9.4 points a year per month's return): days 2–20 carry about 8, the first day's session about 1.3, and the overnight gap just after the signal slightly works against.
+
+### Constraints & Gotchas
+- The earlier prediction was wrong. The log warned that the reversal overlap might make a one-day delay cut the edge a lot. It does not. The signal is a slow drift.
+- The signal-day-close variant reproduces the existing staggered book to the 15th decimal place. That is the check the new code is right.
+- Only 3,624 of 19.5 million stock-days had no trade the next day, so delistings barely matter.
+- The weakness is unchanged: the last three years are flat under every entry rule.
+- Failed-run folder `entry_lag_20261023T235653Z` is still in the run directory.
+
+### Open Questions
+- Whether to update the share page and WhatsApp pack (`/Users/arjundivecha/Desktop/Pattern WhatsApp/`) to next-open numbers, which still quote about 10% a year at the signal-day close.
+- Whether to delete the failed run folder.
+
+### Context for Next Session
+The lag test is done and committed (`4b36581`, not pushed). Next-open results are the realistic headline: 9.2% a year, Sharpe 0.88. The Railway login is still the blocker for the live ticker app.
+
+---
+SESSION END: 2026-10-23 17:33 PDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
