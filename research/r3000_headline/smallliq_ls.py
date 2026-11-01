@@ -1,8 +1,16 @@
 """
 Script: smallliq_ls.py
-Version: 1.0 (2026-11-01)
+Version: 1.1 (2026-11-01)
 
 Description:
+    v1.1 adds --universe r3000 (every scored point-in-time Russell 3000 member) and --per-side-usd, a
+    capacity screen at a fixed dollar book: a name is eligible for an N-per-side book only if its 60-session
+    mean dollar volume (SmallLiq's adv60_usd, all members) is at least (per-side capital / N) / (1% x 5
+    sessions), i.e. 20x the position, SmallLiq's own participation contract. Each leg is then measured
+    against the equal weight of that N's eligible pool. The 10%-of-pool book is skipped under a capacity
+    screen (its N depends on the pool). Holdings profile (median ADV, spread, share under $5) is reported.
+    Default arguments reproduce v1.0 exactly.
+
     Long-short backtest of the R3000 CNN score inside the Global Data Mart's SmallLiq indexed universe
     (equities.small_liq_indexed_monthly, eligible_indexed): the smaller two-thirds of the Russell 3000
     that pass price, spread, continuity and market-liquidity-indexed ADV screens at each calendar
@@ -31,23 +39,25 @@ Description:
     information only (no cost is charged).
 
 Input files:
+    gdm dataset "equities.small_liq_monthly" (adv60_usd, median_full_spread_bps60, nominal_close, r3000_member; all members)
     gdm dataset "equities.small_liq_indexed_monthly"
         (/Users/arjundivecha/Dropbox/AAA Backup/A Working/Global Data Mart/sources/equities/data/small_liq_indexed/monthly.parquet)
     /Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/Y<year>/ensemble_scores.parquet
     /Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/data/frozen/CURRENT.json (-> pattern_daily_v2_20261010: prices, quality, sessions)
-Output files (in <run dir>/smallliq_ls_<UTC timestamp>/):
+Output files (in <run dir>/smallliq_ls_<UTC timestamp>/, or monthly_ls_<universe>[_<capital>]_<UTC timestamp>/ for v1.1 options):
     monthly.parquet     N x entry x month: long, short, LS, long_vs_pool, pool_vs_short, pool, names, turnover
     stats.parquet       N x entry x book x period statistics; smallliq_ls.xlsx; smallliq_ls.pdf (light mode)
     coverage.parquet    per month: eligible names, scored names, dropped at entry
     summary.json; log tee'd by the caller to verify_logs/smallliq_ls_v1.0.log
 
 Usage:
-    .venv/bin/python research/r3000_headline/smallliq_ls.py
+    .venv/bin/python research/r3000_headline/smallliq_ls.py [--universe smallliq|r3000] [--per-side-usd 1000000]
 
 Dependencies: numpy, pandas, matplotlib, openpyxl; gdm (Global Data Mart), verify_fixed.nw_t, prepare.resolve_dataset.
 """
 from pathlib import Path
 from datetime import datetime, timezone
+import argparse
 import json
 import sys
 import time
@@ -94,15 +104,30 @@ def periods(idx):
 
 
 def main():
-    out = RUN / ('smallliq_ls_' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--universe', choices=['smallliq', 'r3000'], default='smallliq')
+    ap.add_argument('--per-side-usd', type=float, default=None)
+    a = ap.parse_args()
+    stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    if a.universe == 'smallliq' and a.per_side_usd is None:
+        out = RUN / ('smallliq_ls_' + stamp)
+    else:
+        out = RUN / (f'monthly_ls_{a.universe}' + (f'_{a.per_side_usd / 1e6:g}m' if a.per_side_usd else '') + '_' + stamp)
     out.mkdir()
     root, _ = resolve_dataset()
-    uni = pd.read_parquet(dataset('equities.small_liq_indexed_monthly', must_exist=True),
-                          columns=['asof_date', 'security', 'eligible_indexed'])
-    uni = uni[uni.eligible_indexed].copy()
-    uni['security'] = uni.security.astype(str)
-    log(f'SmallLiq indexed: {len(uni):,} eligible security-months, {uni.asof_date.nunique()} months, '
-        f'pool {uni.groupby("asof_date").size().min()}-{uni.groupby("asof_date").size().max()}')
+    liq = pd.read_parquet(dataset('equities.small_liq_monthly', must_exist=True),
+                          columns=['asof_date', 'security', 'r3000_member', 'adv60_usd', 'median_full_spread_bps60', 'nominal_close'])
+    liq['security'] = liq.security.astype(str)
+    if a.universe == 'smallliq':
+        uni = pd.read_parquet(dataset('equities.small_liq_indexed_monthly', must_exist=True),
+                              columns=['asof_date', 'security', 'eligible_indexed'])
+        uni = uni[uni.eligible_indexed].copy()
+        uni['security'] = uni.security.astype(str)
+        uni = uni.merge(liq.drop(columns='r3000_member'), on=['asof_date', 'security'], how='left')
+    else:
+        uni = liq[liq.r3000_member].drop(columns='r3000_member').copy()
+    log(f'{a.universe}: {len(uni):,} security-months, {uni.asof_date.nunique()} months, '
+        f'pool {uni.groupby("asof_date").size().min()}-{uni.groupby("asof_date").size().max()}; per side {a.per_side_usd}')
 
     sess = pd.read_parquet(root / 'sessions.parquet')
     cal = pd.DatetimeIndex(sess.date)
@@ -164,15 +189,19 @@ def main():
     rows, prev = [], {}
     by_month = {m: g for m, g in pool.groupby('asof_date')}
     for i, m in enumerate(months[:-1]):
-        g = by_month[m].sort_values(['score', 'security'])
-        cols = g.security.map(sid).to_numpy()
+        g_all = by_month[m].sort_values(['score', 'security'])
         f_row, nf_row = form_pos[m] - lo, form_pos[months[i + 1]] - lo
-        n_pool = len(g)
         for N in NS:
+            if a.per_side_usd and N == 'decile':
+                continue
+            g = g_all if not a.per_side_usd else g_all[g_all.adv60_usd >= 20 * a.per_side_usd / N]
+            cols = g.security.map(sid).to_numpy()
+            n_pool = len(g)
             k = max(1, n_pool // 10) if N == 'decile' else N
             if 2 * k > n_pool:
                 continue
             short_c, long_c = cols[:k], cols[-k:]
+            hl, hs = g.iloc[-k:], g.iloc[:k]
             to_l = 1 - len(set(long_c) & prev.get((N, 'L'), set())) / k if (N, 'L') in prev else np.nan
             to_s = 1 - len(set(short_c) & prev.get((N, 'S'), set())) / k if (N, 'S') in prev else np.nan
             prev[(N, 'L')], prev[(N, 'S')] = set(long_c), set(short_c)
@@ -183,7 +212,10 @@ def main():
                 rows.append({'N': str(N), 'entry': en, 'month': pd.Timestamp(months[i + 1]), 'formed': pd.Timestamp(m),
                              'long': rl, 'short': rs, 'LS': rl - rs, 'long_vs_pool': rl - rp, 'pool_vs_short': rp - rs, 'pool': rp,
                              'names_per_side': k, 'pool_names': n_pool, 'turnover_long': to_l, 'turnover_short': to_s,
-                             'dropped_at_entry': dl_ + ds_})
+                             'dropped_at_entry': dl_ + ds_,
+                             'long_med_adv': hl.adv60_usd.median(), 'short_med_adv': hs.adv60_usd.median(),
+                             'long_med_spread_bps': hl.median_full_spread_bps60.median(), 'short_med_spread_bps': hs.median_full_spread_bps60.median(),
+                             'long_under5': (hl.nominal_close < 5).mean(), 'short_under5': (hs.nominal_close < 5).mean()})
     mon = pd.DataFrame(rows)
     mon.to_parquet(out / 'monthly.parquet', index=False)
     cov.to_parquet(out / 'coverage.parquet', index=False)
@@ -197,16 +229,17 @@ def main():
                 st.append({'N': N, 'entry': en, 'book': book, 'period': p, **mstats(d.loc[msk, book])})
     stats = pd.DataFrame(st)
     stats.to_parquet(out / 'stats.parquet', index=False)
-    order = [str(n) for n in NS]
-    tov = mon[mon.entry == 'open'].groupby('N')[['turnover_long', 'turnover_short']].mean().reindex(order)
+    order = [str(n) for n in NS if str(n) in set(mon.N)]
+    tov = mon[mon.entry == 'open'].groupby('N')[['turnover_long', 'turnover_short', 'pool_names', 'long_med_adv', 'short_med_adv',
+                                                 'long_med_spread_bps', 'short_med_spread_bps', 'long_under5', 'short_under5']].median().reindex(order)
     with pd.ExcelWriter(out / 'smallliq_ls.xlsx') as xw:
-        pd.DataFrame({'note': ['Universe: GDM equities.small_liq_indexed_monthly eligible_indexed (market liquidity only; borrow NOT verified).',
+        pd.DataFrame({'note': [f'Universe: {a.universe} ' + ('(GDM equities.small_liq_indexed_monthly eligible_indexed; market liquidity only; borrow NOT verified)' if a.universe == 'smallliq' else '(every scored point-in-time R3000 member)') + (f'; capacity screen ${a.per_side_usd:,.0f} per side: ADV60 >= 20 x position (1% participation, 5 sessions), fixed dollars' if a.per_side_usd else '') + '.',
                                'Signal: R3000 headline CNN score on the last session on or before each month-end. Long top N, short bottom N, equal weight, monthly.',
                                'open = enter next-session open, exit next month\'s next-session open; close = formation close to next formation close. Gross of all costs and borrow.',
                                'LS = long minus short; long_vs_pool / pool_vs_short = each leg against the eligible pool\'s equal weight; pool = equal-weight eligible pool.']}).to_excel(xw, sheet_name='notes', index=False)
         stats[stats.book == 'LS'].to_excel(xw, sheet_name='LS', index=False)
         stats.to_excel(xw, sheet_name='all_stats', index=False)
-        tov.reset_index().to_excel(xw, sheet_name='turnover', index=False)
+        tov.reset_index().to_excel(xw, sheet_name='turnover_and_holdings', index=False)
         cov.to_excel(xw, sheet_name='coverage', index=False)
 
     plt.rcParams.update({'figure.facecolor': 'white', 'axes.facecolor': 'white', 'font.size': 9})
@@ -220,11 +253,11 @@ def main():
         for ax, t in zip(axes, ['Sharpe ratio of long-short', 'Annual return of long-short, % (gross)']):
             ax.set_xticks(xs); ax.set_xticklabels([f'{n}\nper side' if n != 'decile' else '10% of\npool' for n in order], fontsize=8)
             ax.axhline(0, color='black', lw=0.7); ax.grid(alpha=0.25); ax.legend(fontsize=8); ax.set_title(t, fontsize=9)
-        fig.suptitle('CNN long-short in the SmallLiq indexed universe, by number of stocks per side (next-open entry, monthly)', fontsize=10)
+        fig.suptitle(f'CNN long-short, universe {a.universe}' + (f', ${a.per_side_usd / 1e6:g}m per side capacity screen' if a.per_side_usd else '') + ', by number of stocks per side (next-open entry, monthly)', fontsize=10)
         fig.tight_layout(); pdf.savefig(fig); plt.close(fig)
 
         fig, ax = plt.subplots(figsize=(11, 5))
-        for n, colr in zip(['10', '30', '50', '100', 'decile'], ['#b8432f', '#d9a08f', '#0f7a58', '#5fae8d', '#15211d']):
+        for n, colr in zip([x for x in ['10', '30', '50', '100', 'decile'] if x in order], ['#b8432f', '#d9a08f', '#0f7a58', '#5fae8d', '#15211d']):
             d = mon[(mon.N == n) & (mon.entry == 'open')].set_index('month').LS
             f = ls_open.loc[(n, 'Full')]
             ax.plot((1 + d).cumprod(), color=colr, lw=1.3, label=f'{n if n != "decile" else "10% of pool"} per side: {f.ann_return:.1%}/yr, Sharpe {f.sharpe:.2f}, worst drawdown {f.max_drawdown:.0%}')
@@ -244,7 +277,7 @@ def main():
         fig.tight_layout(); pdf.savefig(fig); plt.close(fig)
 
     key = stats[(stats.book == 'LS') & stats.period.isin(['Full', '2006-2026', '2000-2011', '2012-2026', '5y', '3y'])]
-    json.dump({'out': str(out), 'scored_share': float(cov.scored.sum() / cov.eligible.sum()),
+    json.dump({'out': str(out), 'universe': a.universe, 'per_side_usd': a.per_side_usd, 'scored_share': float(cov.scored.sum() / cov.eligible.sum()),
                'pool_size_min_max': [int(cov.scored.min()), int(cov.scored.max())],
                'LS': key.round(4).to_dict('records'), 'turnover_open': tov.round(3).reset_index().to_dict('records'),
                'elapsed_s': round(time.time() - T0, 1)}, open(out / 'summary.json', 'w'), indent=1, default=str)
