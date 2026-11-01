@@ -1216,3 +1216,43 @@ The top-1% description is done and committed (`3e6bf24`, not pushed). The PDF wa
 ---
 SESSION END: 2026-10-31 22:21 CDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-11-01 00:11 CDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Four runs this session, each committed (none pushed). All long-short results are gross of costs and borrow.
+
+1. **Short-only bottom 1%** (`short_bottom1.py`, `9ca40fe`): next-open entry, 20 staggered tranches of about 29 names (about 600 shorts at a time). Short alone made −2%/yr at Sharpe 0.07, with a 92% worst drawdown and −57% over the last 12 months. Hedged with a long in the average stock it made 13.6%/yr at Sharpe 0.97, 14% volatility, 31% worst drawdown, and was positive in 22 of 27 years. Sharpe was 1.25 in 2000–2011 and 0.74 since 2012. Losing years: 2003, 2009, 2013, 2020, 2026. Signal-close entry adds under 1 point a year; bankruptcy treatment makes no difference.
+2. **GDM SmallLiq indexed universe** (`smallliq_ls.py` v1.0, `bb89224`): best was 50 names a side at 7.2%/yr, Sharpe 0.53. Since 2006 about 4%/yr, Sharpe 0.30, and every book size lost money over the last 3 years. 10 names a side was Sharpe 0.18.
+3. **Full R3000 with a $1m-a-side capacity screen** (`smallliq_ls.py` v1.1, `d2890fb`): 40 names a side gave 15.7%/yr at Sharpe 0.73. 100 names gave 12.9%/yr at Sharpe 0.82. The universe screen, not the monthly construction, is what killed the signal in SmallLiq.
+4. **100-name $1m stress test** (`stress_100.py`, `0e32599`, README §M.7): run time 24 minutes.
+
+### Decisions Made
+- Hedged short is the version to keep; the bare short book is not viable.
+- The 100-name $1m-a-side monthly book is the candidate for stress testing.
+- No cost or borrow charges applied, per the research rule. Break-even borrow fees are information only.
+
+### Architecture / Design
+- `smallliq_ls.py` v1.1 added `--universe r3000` and `--per-side-usd`. The capacity screen requires 60-day average dollar volume of at least 20 times the position. The default run reproduces v1.0 exactly.
+- Scripts are in `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/`. Run dirs are under `runs/headline_I20R20_v2_cloud_20261012T034158Z/`: `short_bottom1_20261101T034252Z`, `smallliq_ls_20261101T034903Z`, `monthly_ls_r3000_20261101T040922Z`, `monthly_ls_r3000_1m_20261101T041035Z`, `stress_100_20261101T041600Z`. Logs are in `verify_logs/`.
+- Factor data: Ken French monthly has no reversal factor, so the regressions use the JKP library (`jkp.usa_factors_vw_cap`).
+
+### Constraints & Gotchas
+- **Capacity:** Sharpe is about 1.00 at $1m a side, 0.80 at $5m, 0.66 at $10m and 0.52 at $25m. Since 2012 the $10m book is 0.38.
+- **Rebalance day:** across all 20 days the Sharpe ranged 0.48–0.94, median 0.73. The month-end 0.82 was a mildly lucky draw. The 20 schedules averaged together gave 12.6%/yr at Sharpe 1.00, and 7.7%/yr at 0.67 since 2012.
+- **$5 short floor (surprising):** return drops to 9.8%/yr but Sharpe rises to 1.04. The edge does not need sub-$5 shorts. Break-even borrow fee is about 12.6%/yr on all shorts, 7.7% since 2012, and 35–57% on sub-$5 shorts only.
+- **Factor alpha (contradicts the earlier "edge vanishes after 2012" finding):** 11.6%/yr, t 5.7 after the five Fama-French factors plus momentum. Since 2012 it is 8.5%, t 2.9. With reversal, lottery and idiosyncratic volatility added, 7.3% since 2012, t 2.5. The earlier test was a different one, a per-stock neutralisation of the top-minus-bottom-10% book.
+- **Behaviour:** market beta −0.27. It averages +2.1% in down-market months and +0.4% in up months. Drawdowns come from junk rallies: 31% (Oct 2019–Jan 2021), 17% (2008–2011).
+- **Open now:** a 22% drawdown since April 2025, the last 12 months at −17%, and the rolling 3-year Sharpe near zero, its lowest ever.
+
+### Open Questions
+- Is the current drawdown another junk-rally episode (2009 and 2020 both recovered) or the start of decay? The data cannot yet say.
+
+### Context for Next Session
+Suggested next steps for the 100-name book: borrow-cost sensitivity, and a check of whether the sub-$5 short floor holds out of sample.
+
+---
+SESSION END: 2026-11-01 00:11 CDT | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
