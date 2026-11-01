@@ -2497,3 +2497,29 @@ Results by variant:
 The book has a negative market beta, −0.27. It earns +3.3% in the market's worst-decile months and
 −1.6% in its best. Break-even borrow is 12.6% a year on all shorts, or 7.7% since 2012. Output is in
 `runs/headline_I20R20_v2_cloud_20261012T034158Z/stress_100_20261101T041600Z/`.
+
+### M.8  When the 100-name book works: market regimes (`regime_100.py`, 2026-11-01)
+
+The book is mostly a bet against junk stocks. Its single strongest same-month driver is the
+equal-weight R3000 spread between the most and least volatile fifth of stocks. When that spread
+is in its top third (a junk rally), the book loses 1.7% a month. When it is in its bottom third
+(a junk sell-off), the book makes 4.2% a month. The t-stat on the difference is −10, and the result
+holds in both 2000–2011 and 2012–2026. The low-price and small-minus-big spreads tell the same story,
+and the profitability factor tells it in reverse.
+
+Every losing year is a junk-rally year: 2003, 2009, 2013, 2020, and 2025–26. The best years are
+junk sell-offs: 2000–02, 2008, and 2021–22. The one exception is 2015–16, a momentum reversal.
+
+After regressing on that junk spread and the equal-weight market, the schedule-averaged book keeps
+9.1% a year of alpha (t 3.9) over the full sample. Since 2012 it keeps only 3.9% (t 1.4). Most of
+the post-2012 return is the low-volatility premium. This is weaker than the §M.7 result, which
+controlled for value-weighted JKP factors.
+
+Nothing known at formation predicts the book: not VIX, credit spreads, the term spread, rate changes,
+past market or dispersion, past junk returns, or ISM PMI. All tercile splits have |t| < 1.6 on the
+offset-0 book, with inconsistent signs across halves. Monthly junk returns have autocorrelation 0.06.
+
+As of June 2026, the prior 3 months of junk returns sit at the 94th percentile and dispersion at
+the 90th. Credit spreads are at the 2nd percentile.
+
+Output is in `runs/headline_I20R20_v2_cloud_20261012T034158Z/regime_100_20261101T224007Z/`.
