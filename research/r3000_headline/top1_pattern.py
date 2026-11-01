@@ -178,7 +178,7 @@ def main():
 
     # 5. recurring shapes in the top 1%
     lc = np.log(cl)
-    X = np.hstack([lc, 0.5 * np.log(np.maximum(vsh * W, 1e-6))])
+    X = np.hstack([lc[:, 1:], 0.5 * np.log(np.maximum(vsh * W, 1e-6))])   # day-1 close is 1 by construction
     mu, sd = X[sel.grp == 'top1'].mean(0), X[sel.grp == 'top1'].std(0)
     Z = (X - mu) / sd
     top = np.flatnonzero(sel.grp.to_numpy() == 'top1')
