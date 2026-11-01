@@ -2523,3 +2523,57 @@ As of June 2026, the prior 3 months of junk returns sit at the 94th percentile a
 the 90th. Credit spreads are at the 2nd percentile.
 
 Output is in `runs/headline_I20R20_v2_cloud_20261012T034158Z/regime_100_20261101T224007Z/`.
+
+### M.9  Deep dive: the 40-name-per-side $1m book (`stress_100.py --n 40`, `regime_100.py --n 40`, `holdings_deepdive.py`, 2026-11-01)
+
+The 40-name book is the 100-name book run more concentrated. The two books' monthly returns
+correlate at 0.97.
+
+Averaged over the 20 rebalance schedules, it earns 15.0% a year at a Sharpe of 0.97, against 12.6%
+and 1.00 for the 100-name book. Since 2012 it earns 8.9% at a Sharpe of 0.60. Over the last 3 years
+it earns 5.6%, and over the last 12 months it lost 25%. Across the 20 schedules the full-period Sharpe
+runs from 0.41 to 0.99.
+
+It is more volatile and has deeper drawdowns:
+- −39% from 2019 to 2021
+- −31% currently open, since April 2025
+- −24% from 2012 to 2015
+- −24% in 2009
+
+It scales worse than the 100-name book. The Sharpe since 2012 is 0.37 at $5m per side and 0.11 at
+$25m. A $5 short floor lowers it: 0.91 against 0.97.
+
+Factor alpha after the five Fama-French factors plus momentum is 14.3% a year (t 5.6), and 10.1%
+since 2012 (t 2.8). After controlling for the equal-weight junk spread (§M.8) it is 11.8% (t 4.2),
+and 5.4% since 2012 (t 1.5).
+
+Where the money comes from, measured against the capacity-screened pool:
+- The short side earns 11.1% a year, and 8.4% since 2012.
+- The long side earns 3.9% a year, and 0.5% since 2012.
+- In absolute terms the shorts returned about 0% over 26 years, while the pool returned 10.9%.
+
+The two sides hold different kinds of stock:
+- **Longs:** larger and more liquid than the pool, with a median capitalisation of $2.0bn against
+  $1.4bn. Their volatility is normal. The most-held longs are Citi, the oil majors and Apple.
+- **Shorts:** small, at a median of $0.5bn. They are volatile (57% against 37% for the pool) and
+  cheap, with 24% under $5. They are recent losers, and 34% of them are health care or biotech.
+
+Turnover is near-total: 97–98% of names are new each month, and the average holding lasts one month.
+
+The P&L is not carried by a few names. The top 20 names supply 13% of total contribution. Trimming
+both the best and worst 1% of positions raises the return, because short squeezes cost more than
+the big winners add. Short-side skew is −2.4.
+
+Inside the short book the signal only works on junk:
+- Volatile-tercile shorts earn +1.4% a month.
+- Calm-tercile shorts lose 0.8% a month, which is roughly the market.
+- Shorts under $5 earn +0.9% a month; shorts over $20 lose 0.3%.
+
+On the long side, the extra return comes from cheap names and from names that fell the prior month.
+
+Regimes match §M.8. When the junk spread is in its top tercile the book loses 2.6% a month; in the
+bottom tercile it makes 5.7% (t −10.6). No condition known at formation predicts it.
+
+Outputs are in `runs/headline_I20R20_v2_cloud_20261012T034158Z/`, in `stress_40_20261101T224542Z/`,
+`regime_40_20261101T225019Z/` and `holdings_40_20261101T225029Z/`. `stress_100_20261101T225019Z/`
+is a reproduction check: it matches v1.0 exactly.

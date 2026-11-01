@@ -1,6 +1,8 @@
 """
 Script: regime_100.py
-Version: 1.0 (2026-11-01)
+Version: 1.1 (2026-11-01)
+    v1.1: --stress-dir and --n choose which stress_100.py run to analyse (default: the 100-name run, output
+          identical to v1.0); output folder, xlsx and pdf are named regime_<n>.
 
 Description:
     When does the 100-name $1m-per-side CNN long-short book (stress_100.py, base variant) work and when does
@@ -32,16 +34,17 @@ Input files:
     /Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/data/frozen/CURRENT.json (-> pattern_daily_v2_20261010: prices, sessions)
 Output files (in <run dir>/regime_100_<UTC timestamp>/):
     conditions.parquet (month x condition), buckets.parquet, regression.parquet, drawdown_conditions.parquet,
-    current.parquet, regime_100.xlsx, regime_100.pdf (light mode), summary.json;
-    log tee'd by the caller to verify_logs/regime_100_v1.0.log
+    current.parquet, regime_<n>.xlsx, regime_<n>.pdf (light mode), summary.json;
+    log tee'd by the caller to verify_logs/regime_<n>_v1.x.log
 
 Usage:
-    .venv/bin/python research/r3000_headline/regime_100.py
+    .venv/bin/python research/r3000_headline/regime_100.py [--n 40 --stress-dir <run dir>/stress_40_<ts>]
 
 Dependencies: numpy, pandas, matplotlib, openpyxl; gdm; prepare.resolve_dataset, verify_fixed.nw_t.
 """
 from pathlib import Path
 from datetime import datetime, timezone
+import argparse
 import json
 import sys
 import time
@@ -121,7 +124,7 @@ def tercile_table(df, var, y, label, kind):
 
 
 def main():
-    out = RUN / ('regime_100_' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+    out = RUN / (f'regime_{N}_' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
     out.mkdir()
 
     # --- book
@@ -303,7 +306,7 @@ def main():
     log('current readings:\n' + cur.round(3).to_string(index=False))
 
     # --- xlsx
-    with pd.ExcelWriter(out / 'regime_100.xlsx') as xw:
+    with pd.ExcelWriter(out / f'regime_{N}.xlsx') as xw:
         bk.to_excel(xw, sheet_name='terciles', index=False)
         reg.to_excel(xw, sheet_name='regression', index=False)
         epi.to_excel(xw, sheet_name='drawdowns', index=False)
@@ -312,7 +315,7 @@ def main():
 
     # --- pdf
     plt.rcParams.update({'font.size': 8, 'axes.spines.top': False, 'axes.spines.right': False})
-    with PdfPages(out / 'regime_100.pdf') as pdf:
+    with PdfPages(out / f'regime_{N}.pdf') as pdf:
         for kind, title in [('same_month', 'Book return by same-month condition (tercile means, % per month)'),
                             ('predictive', 'Book return by condition known at formation (tercile means, % per month)')]:
             sub = bk[(bk.kind == kind)]
@@ -369,4 +372,9 @@ def main():
 
 
 if __name__ == '__main__':
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--n', type=int, default=100)
+    ap.add_argument('--stress-dir', default=str(STRESS))
+    a = ap.parse_args()
+    N, STRESS = a.n, Path(a.stress_dir)
     main()

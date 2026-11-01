@@ -1,10 +1,13 @@
 """
 Script: stress_100.py
-Version: 1.0 (2026-11-01)
+Version: 1.1 (2026-11-01)
+    v1.1: --n sets names per side (default 100 reproduces v1.0 exactly); output folder, xlsx and pdf are named
+          stress_<n>; also writes holdings.parquet (every base-variant position on every schedule with its
+          entry-to-exit return) for the holdings deep dive.
 
 Description:
     Stress test of the CNN long-short book found in smallliq_ls.py v1.1: full point-in-time Russell 3000,
-    long the 100 highest and short the 100 lowest CNN scores, equal weight, rebalanced monthly, entered at
+    long the N (default 100) highest and short the N lowest CNN scores, equal weight, rebalanced monthly, entered at
     the next session's open, with a $1m-per-side capacity screen (60-session mean dollar volume at least
     20x the $10,000 position, i.e. 1% participation over 5 sessions). Gross of all costs; no cost or
     borrow penalty is charged (house rule) - borrow is reported only as a break-even fee.
@@ -31,18 +34,19 @@ Input files:
         (/Users/arjundivecha/Dropbox/AAA Backup/A Working/Global Data Mart/sources/...; read via gdm.dataset)
     /Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/Y<year>/ensemble_scores.parquet
     /Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/data/frozen/CURRENT.json (-> pattern_daily_v2_20261010: prices, quality, sessions)
-Output files (in <run dir>/stress_100_<UTC timestamp>/):
+Output files (in <run dir>/stress_<n>_<UTC timestamp>/):
     monthly.parquet (variant x schedule x month), schedule_stats.parquet, averaged_stats.parquet,
-    factor_regressions.parquet, drawdowns.parquet, years.parquet, stress_100.xlsx, stress_100.pdf (light mode),
-    summary.json; log tee'd by the caller to verify_logs/stress_100_v1.0.log
+    factor_regressions.parquet, drawdowns.parquet, years.parquet, holdings.parquet, stress_<n>.xlsx,
+    stress_<n>.pdf (light mode), summary.json; log tee'd by the caller to verify_logs/stress_<n>_v1.x.log
 
 Usage:
-    .venv/bin/python research/r3000_headline/stress_100.py
+    .venv/bin/python research/r3000_headline/stress_100.py [--n 40]
 
 Dependencies: numpy, pandas, matplotlib, openpyxl; gdm; prepare.resolve_dataset, verify_fixed.nw_t.
 """
 from pathlib import Path
 from datetime import datetime, timezone
+import argparse
 import json
 import sys
 import time
@@ -114,7 +118,7 @@ def ols_nw(y, X, lags=3):
 
 
 def main():
-    out = RUN / ('stress_100_' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+    out = RUN / (f'stress_{N}_' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
     out.mkdir()
     root, _ = resolve_dataset()
     liq = pd.read_parquet(dataset('equities.small_liq_monthly', must_exist=True), columns=['asof_date', 'security', 'r3000_member', 'adv60_usd', 'nominal_close'])
@@ -153,7 +157,7 @@ def main():
     del px, q, sc
     log(f'price matrix {T.shape}')
 
-    def leg(cols, e_row, x_row):
+    def leg(cols, e_row, x_row, detail=False):
         live = OBS[e_row, cols]
         c = cols[live]
         e = O[e_row, c].copy()
@@ -164,9 +168,10 @@ def main():
             x = O[x_row, c].copy()
             bad = ~(np.isfinite(x) & OBS[x_row, c])
             x[bad] = T[x_row - 1, c[bad]]
-        return float(np.mean(x / e - 1))
+        r = x / e - 1
+        return (float(np.mean(r)), c, r) if detail else float(np.mean(r))
 
-    rows = []
+    rows, hold = [], []
     for k in OFFSETS:
         f = me_pos + k - lo                                   # formation rows
         for j in range(len(months) - 1):
@@ -190,12 +195,23 @@ def main():
                     continue
                 lc = g.index[-N:].map(sid).to_numpy()
                 scl = gs.index[:N].map(sid).to_numpy()
-                rl, rs, rp = leg(lc, e_row, x_row), leg(scl, e_row, x_row), leg(g.index.map(sid).to_numpy(), e_row, x_row)
+                if var == 'base_1m':
+                    rl, cl, al = leg(lc, e_row, x_row, True)
+                    rs, cs_, as_ = leg(scl, e_row, x_row, True)
+                    for side, cc_, aa in (('long', cl, al), ('short', cs_, as_)):
+                        hold.append(pd.DataFrame({'offset': k, 'formation_month': pd.Timestamp(months[j]), 'formation_date': fdate,
+                                                  'side': side, 'security': np.asarray(secs)[cc_], 'ret': aa}))
+                    rp = leg(g.index.map(sid).to_numpy(), e_row, x_row)
+                else:
+                    rl, rs, rp = leg(lc, e_row, x_row), leg(scl, e_row, x_row), leg(g.index.map(sid).to_numpy(), e_row, x_row)
                 rows.append({'variant': var, 'offset': k, 'month': pd.Timestamp(months[j + 1]), 'long': rl, 'short': rs, 'pool': rp,
                              'LS': rl - rs, 'pool_names': len(g), 'short_under5': float((gs.nominal_close.iloc[:N] < 5).mean())})
         log(f'schedule {k} done')
     mon = pd.DataFrame(rows)
     mon.to_parquet(out / 'monthly.parquet', index=False)
+    hold = pd.concat(hold, ignore_index=True)
+    hold.to_parquet(out / 'holdings.parquet', index=False)
+    log(f'holdings: {len(hold):,} positions')
 
     # 1-3. by schedule and schedule-averaged
     sst = []
@@ -283,8 +299,8 @@ def main():
           'sub5_share_of_shorts': u5, 'sub5_only_full': float(full.ann_return / u5), 'sub5_only_2012_2026': float(rec12.ann_return / u5)}
     log(f'borrow break-even: {be}')
 
-    with pd.ExcelWriter(out / 'stress_100.xlsx') as xw:
-        pd.DataFrame({'note': ['Full R3000, long top 100 / short bottom 100 CNN scores, equal weight, monthly, next-open entry; $1m-per-side capacity screen (ADV60 >= 20x position) unless stated. Gross; no costs or borrow charged.',
+    with pd.ExcelWriter(out / f'stress_{N}.xlsx') as xw:
+        pd.DataFrame({'note': [f'Full R3000, long top {N} / short bottom {N} CNN scores, equal weight, monthly, next-open entry; $1m-per-side capacity screen (ADV60 >= 20x position) unless stated. Gross; no costs or borrow charged.',
                                'Schedules: formation on the k-th session after each month-end, k = 0..19. Averaged = mean of the 20 schedules per formation month (approximation).',
                                f'Factors: Ken French FF5 + momentum; JKP value-weighted US ret_1_0, rmax1_21d, ivol_capm_21d (JKP data ends {jk_last}). Newey-West 3 lags.',
                                'Borrow break-even: annual fee on short notional that would erase the average long-short return.']}).to_excel(xw, sheet_name='notes', index=False)
@@ -297,7 +313,7 @@ def main():
         pd.DataFrame([updown | be]).T.reset_index().to_excel(xw, sheet_name='behaviour_borrow', index=False)
 
     plt.rcParams.update({'figure.facecolor': 'white', 'axes.facecolor': 'white', 'font.size': 9})
-    with PdfPages(out / 'stress_100.pdf') as pdf:
+    with PdfPages(out / f'stress_{N}.pdf') as pdf:
         fig, axes = plt.subplots(1, 3, figsize=(15, 4.6), sharey=True)
         for ax, per in zip(axes, ['Full', '2012-2026', '5y']):
             for i, var in enumerate(VARIANTS):
@@ -335,4 +351,7 @@ def main():
 
 
 if __name__ == '__main__':
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--n', type=int, default=100, help='names per side')
+    N = ap.parse_args().n
     main()
