@@ -1256,3 +1256,37 @@ Suggested next steps for the 100-name book: borrow-cost sensitivity, and a check
 ---
 SESSION END: 2026-11-01 00:11 CDT | Agent: Claude Code (auto, idle, session cedcfbeb)
 ---
+
+---
+SESSION START: 2026-11-01 17:30 CST | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
+
+### Session Summary
+Two analyses on the 100-name and 40-name $1m-a-side monthly books, then a push. Work was in `/Users/arjundivecha/Dropbox/AAA Backup/A Working/Pattern/`.
+
+1. **Regime analysis, 100-name book** (`research/r3000_headline/regime_100.py` v1.0, run `regime_100_20261101T224007Z`, README §M.8, commit `2b2ca94`). The book is mostly a bet against junk stocks. Same-month driver: the top-vs-bottom-volatility-quintile R3000 spread. When volatile stocks won most, the book lost 1.7%/month. When they lost most, it made 4.2%/month (t −10, holds in both 2000–2011 and 2012–2026). Every losing year was a junk rally: 2003, 2009, 2013, 2020, 2025–26. Best years were junk sell-offs: 2000–02, 2008, 2021 (+61%), 2022 (+27%). 2015–16 was an exception (momentum reversal). Nothing knowable at month start separated good months from bad: VIX, credit spreads, yield curve, rate changes, prior market returns, return dispersion, recent junk returns (autocorrelation 0.06), ISM PMI and the book's own recent performance. Signs flip between halves.
+2. **40-name deep dive** (`stress_100.py` v1.1 with `--n` and position recording, `regime_100.py` v1.1 with `--stress-dir/--n`, new `holdings_deepdive.py`; run `stress_40_20261101T224542Z`; README §M.9; commit `c0a125d`). The 100-name default reproduces the earlier run exactly. Stress run took 4.4 minutes.
+3. **Push:** 20 commits pushed to `origin/master` (GitHub ArjunDivecha/Pattern), now at `c0a125d`.
+
+### Decisions Made
+- Keep the 40-name book as the concentrated variant of the 100-name book. Choosing 40 over 100 buys about 2.5 points a year for rougher drawdowns.
+- No timing rule is built, since no condition forecasts regime.
+
+### Constraints & Gotchas
+- **Correction to the earlier stress-test finding:** the "7.3%/yr alpha since 2012" used large-cap-weighted factors. After controlling for the volatility-quintile spread, the 100-name book's own alpha is about 9%/yr over the full period (t 3.9) but only about 4%/yr since 2012 (t 1.4, not significant). The 40-name book: 11.8% overall (t 4.2), 5.4% since 2012 (t 1.5). Since 2012 the return is mostly the old tendency of volatile stocks to underperform.
+- **40-name book:** 15.0%/yr versus 12.6% for the 100-name book, Sharpe 0.97 versus 1.00, monthly correlation 0.97. By period: 2000–2011 22%/yr at Sharpe 1.41. Since 2012 8.9% at 0.60. Last 12 months −25%. Drawdowns: 39% (2019–21), 31% open since April 2025. Rebalance-day Sharpe spans 0.41–0.99.
+- **Source of return (surprising):** the short side beats its pool by 11%/yr overall and 8.4% since 2012. The long side beats it by 3.9% overall and 0.5% since 2012, so the long side is market-like.
+- **Shorts:** median market value about $0.5bn, about 50% more volatile than average, 25% priced under $5, a third in health care or biotech. They work only on junk: volatile shorts earn 1.4%/month and calm shorts lose 0.8%. The $5 short floor lowers the 40-name Sharpe (0.91 versus 0.97), the opposite of the 100-name result.
+- **Concentration and turnover:** about 16,500 distinct names over 26 years. The top 20 supply 13% of profit. Trimming the best and worst 1% of positions raises the return, because squeezes cost more than big winners add. Turnover is 97–98% a month.
+- **Capacity:** since 2012 Sharpe is 0.37 at $5m a side and 0.11 at $25m. Break-even borrow fee is 15%/yr on all shorts, 8.9% since 2012.
+- **Current state:** June 2026 junk-return momentum is at the 94th percentile, and credit spreads at the 2nd percentile (near record tights).
+
+### Open Questions
+- Whether the open drawdown ends in a junk sell-off like 2009 and 2020, or reflects decay of the premium since 2012.
+
+### Context for Next Session
+Run dirs are under `research/r3000_headline/runs/headline_I20R20_v2_cloud_20261012T034158Z/`: `regime_100_20261101T224007Z` (PDF, xlsx, parquet tables) and `stress_40_20261101T224542Z`. Logs are in `verify_logs/`. The Railway app deploy still waits on the user running `! railway login`.
+
+---
+SESSION END: 2026-11-01 17:30 CST | Agent: Claude Code (auto, idle, session cedcfbeb)
+---
