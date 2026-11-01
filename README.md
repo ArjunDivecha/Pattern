@@ -2575,5 +2575,6 @@ Regimes match §M.8. When the junk spread is in its top tercile the book loses 2
 bottom tercile it makes 5.7% (t −10.6). No condition known at formation predicts it.
 
 Outputs are in `runs/headline_I20R20_v2_cloud_20261012T034158Z/`, in `stress_40_20261101T224542Z/`,
-`regime_40_20261101T225019Z/` and `holdings_40_20261101T225029Z/`. `stress_100_20261101T225019Z/`
-is a reproduction check: it matches v1.0 exactly.
+`regime_40_20261101T225019Z/` and `holdings_40_20261101T225029Z/`. A reproduction check matched the
+v1.0 100-name run exactly; its duplicate folder was removed (log kept in
+`verify_logs/stress_100_v1.1_repro.log`).
